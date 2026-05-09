@@ -27,11 +27,13 @@ function Scanner() {
   const [motionValue, setMotionValue] =
     useState(0)
 
-  const [demoIndex, setDemoIndex] =
-    useState(0)
-
+  // Weighted randomization
+  // Moderate appears slightly more often
   const demoSeverities = [
     12,
+    12,
+    18,
+    18,
     18,
     26,
   ]
@@ -446,15 +448,16 @@ function Scanner() {
 
       <button
         onClick={() => {
-          reportPothole(
+          const randomSeverity =
             demoSeverities[
-              demoIndex
+              Math.floor(
+                Math.random() *
+                  demoSeverities.length
+              )
             ]
-          )
 
-          setDemoIndex(
-            (prev) =>
-              (prev + 1) % 3
+          reportPothole(
+            randomSeverity
           )
         }}
         style={{

@@ -27,16 +27,6 @@ function Scanner() {
   const [motionValue, setMotionValue] =
     useState(0)
 
-  // Fixed demo severities
-  const demoSeverities = [
-    14,
-    14,
-    20,
-    20,
-    20,
-    32,
-  ]
-
   const reportPothole = async (
     severity
   ) => {
@@ -84,7 +74,6 @@ function Scanner() {
 
         let label = 'Minor'
 
-        // FIXED thresholds
         if (severity >= 26)
           label = 'Severe'
         else if (severity >= 18)
@@ -449,11 +438,16 @@ function Scanner() {
 
       <button
         onClick={() => {
+          const severities = [
+            14,
+            20,
+            32,
+          ]
+
           const randomSeverity =
-            demoSeverities[
+            severities[
               Math.floor(
-                Math.random() *
-                  demoSeverities.length
+                Math.random() * 3
               )
             ]
 

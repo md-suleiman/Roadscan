@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react'
 
-import Scanner from './components/Scanner'
-import Map from './components/Map'
-import Reports from './components/Reports'
+import Scanner from './components/Scanner.jsx'
+import Map from './components/Map.jsx'
+import Reports from './components/Reports.jsx'
 
 function App() {
   const [tab, setTab] =

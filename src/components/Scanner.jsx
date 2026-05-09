@@ -27,13 +27,14 @@ function Scanner() {
   const [motionValue, setMotionValue] =
     useState(0)
 
+  // Fixed demo severities
   const demoSeverities = [
-    12,
-    12,
-    18,
-    18,
-    18,
-    26,
+    14,
+    14,
+    20,
+    20,
+    20,
+    32,
   ]
 
   const reportPothole = async (
@@ -83,9 +84,10 @@ function Scanner() {
 
         let label = 'Minor'
 
-        if (severity > 28)
+        // FIXED thresholds
+        if (severity >= 26)
           label = 'Severe'
-        else if (severity > 18)
+        else if (severity >= 18)
           label = 'Moderate'
 
         setStatus(
@@ -175,7 +177,6 @@ function Scanner() {
       const y = acc.y || 0
       const z = acc.z || 0
 
-      // Combined motion intensity
       const intensity =
         Math.sqrt(
           x * x +
@@ -229,7 +230,7 @@ function Scanner() {
         } else if (
           intensity > 18
         ) {
-          severity = 22
+          severity = 20
         } else {
           severity = 14
         }

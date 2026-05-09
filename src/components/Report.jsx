@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+report
+
+import { useState, useEffect } from 'react'
 
 import {
   db,
@@ -6,98 +8,19 @@ import {
   onSnapshot,
 } from '../firebase'
 
-const getDistance = (
-  lat1,
-  lon1,
-  lat2,
-  lon2
-) => {
-  const R = 6371e3
-
-  const toRad = (deg) =>
-    (deg * Math.PI) / 180
-
-  const dLat = toRad(
-    lat2 - lat1
-  )
-
-  const dLon = toRad(
-    lon2 - lon1
-  )
-
-  const a =
-    Math.sin(dLat / 2) *
-      Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2)
-
-  const c =
-    2 *
-    Math.atan2(
-      Math.sqrt(a),
-      Math.sqrt(1 - a)
-    )
-
-  return R * c
-}
-
-const mergeNearbyPotholes = (
-  potholes
-) => {
-  const merged = []
-
-  potholes.forEach((pothole) => {
-    const existing = merged.find(
-      (m) =>
-        getDistance(
-          pothole.lat,
-          pothole.lng,
-          m.lat,
-          m.lng
-        ) < 15
-    )
-
-    if (existing) {
-      existing.reportCount +=
-        pothole.reportCount || 1
-
-      existing.severity =
-        Math.max(
-          existing.severity,
-          pothole.severity
-        )
-    } else {
-      merged.push({
-        ...pothole,
-
-        reportCount:
-          pothole.reportCount || 1,
-      })
-    }
-  })
-
-  return merged
-}
-
-function Reports({ setTab }) {
-  const [reports, setReports] =
+function Report() {
+  const [potholes, setPotholes] =
     useState([])
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, 'potholes'),
       (snapshot) => {
-        const data = snapshot.docs.map(
-          (doc) => ({
+        setPotholes(
+          snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
-          })
-        )
-
-        setReports(
-          mergeNearbyPotholes(data)
+          }))
         )
       }
     )
@@ -105,296 +28,454 @@ function Reports({ setTab }) {
     return () => unsubscribe()
   }, [])
 
-  const getSeverityData = (
-    severity
-  ) => {
-    if (severity > 20) {
-      return {
-        label: 'Severe',
-        color: '#ef4444',
-        glow:
-          '0 0 20px rgba(239,68,68,0.35)',
-        emoji: '🚨',
-      }
-    }
+  const severe =
+    potholes.filter(
+      (p) => p.severity > 20
+    ).length
 
-    if (severity > 15) {
-      return {
-        label: 'Moderate',
-        color: '#f59e0b',
-        glow:
-          '0 0 20px rgba(245,158,11,0.35)',
-        emoji: '⚠️',
-      }
-    }
+  const moderate =
+    potholes.filter(
+      (p) =>
+        p.severity > 15 &&
+        p.severity <= 20
+    ).length
 
-    return {
-      label: 'Minor',
-      color: '#eab308',
-      glow:
-        '0 0 20px rgba(234,179,8,0.35)',
-      emoji: '🟡',
-    }
+  const minor =
+    potholes.filter(
+      (p) => p.severity <= 15
+    ).length
+
+  let urgency = 'LOW PRIORITY'
+  let urgencyColor = '#22c55e'
+
+  if (severe >= 5) {
+    urgency = 'HIGH PRIORITY'
+    urgencyColor = '#ef4444'
+  } else if (moderate >= 3) {
+    urgency = 'MEDIUM PRIORITY'
+    urgencyColor = '#f59e0b'
   }
 
   return (
     <div
       style={{
-        padding: '2rem',
-        minHeight: '100vh',
-        color: 'white',
+        padding: '1rem',
       }}
     >
-      <div
+      <h1
         style={{
+          color: 'white',
+          fontSize: '2.4rem',
+          marginBottom: '0.5rem',
+        }}
+      >
+        RoadScan AI Analysis
+      </h1>
+
+      <p
+        style={{
+          color: '#94a3b8',
           marginBottom: '2rem',
         }}
       >
-        <h1
+        Real-time municipal road
+        intelligence dashboard
+      </p>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(220px, 1fr))',
+
+          gap: '1rem',
+
+          marginBottom: '2rem',
+        }}
+      >
+        <div
           style={{
-            fontSize: '2.7rem',
-            marginBottom: '0.5rem',
-            fontWeight: '800',
+            background:
+              'linear-gradient(135deg,#0f172a,#1e3a8a)',
+
+            padding: '1.5rem',
+
+            borderRadius: '24px',
+
+            color: 'white',
           }}
         >
-          Road Hazard Reports
+          <h2
+            style={{
+              fontSize: '3rem',
+              margin: 0,
+            }}
+          >
+            {potholes.length}
+          </h2>
+
+          <p
+            style={{
+              marginTop: '0.5rem',
+              opacity: 0.8,
+            }}
+          >
+            Total Detections
+          </p>
+        </div>
+
+        <div
+          style={{
+            background:
+              'linear-gradient(135deg,#7f1d1d,#ef4444)',
+
+            padding: '1.5rem',
+
+            borderRadius: '24px',
+
+            color: 'white',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: '3rem',
+              margin: 0,
+            }}
+          >
+            {severe}
+          </h2>
+
+          <p
+            style={{
+              marginTop: '0.5rem',
+              opacity: 0.8,
+            }}
+          >
+            🚨 Severe Potholes
+          </p>
+        </div>
+
+        <div
+          style={{
+            background:
+              'linear-gradient(135deg,#78350f,#f59e0b)',
+
+            padding: '1.5rem',
+
+            borderRadius: '24px',
+
+            color: 'white',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: '3rem',
+              margin: 0,
+            }}
+          >
+            {moderate}
+          </h2>
+
+          <p
+            style={{
+              marginTop: '0.5rem',
+              opacity: 0.8,
+            }}
+          >
+            ⚠ Moderate
+          </p>
+        </div>
+
+        <div
+          style={{
+            background:
+              'linear-gradient(135deg,#064e3b,#22c55e)',
+
+            padding: '1.5rem',
+
+            borderRadius: '24px',
+
+            color: 'white',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: '3rem',
+              margin: 0,
+            }}
+          >
+            {minor}
+          </h2>
+
+          <p
+            style={{
+              marginTop: '0.5rem',
+              opacity: 0.8,
+            }}
+          >
+            ✅ Minor
+          </p>
+        </div>
+      </div>
+
+      <div
+        style={{
+          background:
+            'linear-gradient(135deg, rgba(239,68,68,0.18), rgba(15,23,42,0.9))',
+
+          border:
+            '1px solid rgba(239,68,68,0.3)',
+
+          padding: '2rem',
+
+          borderRadius: '28px',
+
+          marginBottom: '2rem',
+        }}
+      >
+        <p
+          style={{
+            color: '#94a3b8',
+            marginBottom: '0.5rem',
+          }}
+        >
+          CURRENT MUNICIPAL STATUS
+        </p>
+
+        <h1
+          style={{
+            color: urgencyColor,
+            fontSize: '3rem',
+            margin: 0,
+          }}
+        >
+          {urgency}
         </h1>
 
         <p
           style={{
-            color: '#94a3b8',
-            fontSize: '1.1rem',
+            color: '#cbd5e1',
+            marginTop: '1rem',
+            lineHeight: '1.8',
           }}
         >
-          Live crowdsourced road damage
-          monitoring
+          Real-time anomaly detection
+          indicates infrastructure
+          deterioration across
+          monitored road networks.
+          Immediate attention is
+          recommended for
+          high-severity zones.
         </p>
       </div>
 
       <div
         style={{
           display: 'grid',
-          gap: '1.2rem',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(300px, 1fr))',
+
+          gap: '1.5rem',
+
+          marginBottom: '2rem',
         }}
       >
-        {reports.map((report) => {
-          const severityData =
-            getSeverityData(
-              report.severity
-            )
+        <div
+          style={{
+            background:
+              'rgba(255,255,255,0.05)',
 
-          return (
+            padding: '2rem',
+
+            borderRadius: '24px',
+
+            border:
+              '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <h2
+            style={{
+              color: 'white',
+              marginBottom: '1.5rem',
+            }}
+          >
+            🛣 Road Analysis
+          </h2>
+
+          <div
+            style={{
+              color: '#cbd5e1',
+              lineHeight: '2',
+            }}
+          >
+            <p>
+              • Multiple road surface
+              anomalies detected
+            </p>
+
+            <p>
+              • Severe potholes pose
+              vehicle safety risks
+            </p>
+
+            <p>
+              • Traffic efficiency may
+              decrease in affected
+              zones
+            </p>
+
+            <p>
+              • Road wear patterns
+              indicate infrastructure
+              degradation
+            </p>
+          </div>
+        </div>
+
+        <div
+          style={{
+            background:
+              'rgba(255,255,255,0.05)',
+
+            padding: '2rem',
+
+            borderRadius: '24px',
+
+            border:
+              '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <h2
+            style={{
+              color: 'white',
+              marginBottom: '1.5rem',
+            }}
+          >
+            🧠 AI Recommendations
+          </h2>
+
+          <div
+            style={{
+              color: '#cbd5e1',
+              lineHeight: '2',
+            }}
+          >
+            <p>
+              ✅ Prioritize severe
+              pothole repairs
+            </p>
+
+            <p>
+              ✅ Dispatch maintenance
+              teams to hotspot zones
+            </p>
+
+            <p>
+              ✅ Continue live road
+              monitoring
+            </p>
+
+            <p>
+              ✅ Schedule preventive
+              maintenance inspections
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          background:
+            'rgba(255,255,255,0.05)',
+
+          padding: '2rem',
+
+          borderRadius: '24px',
+
+          border:
+            '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        <h2
+          style={{
+            color: 'white',
+            marginBottom: '1.5rem',
+          }}
+        >
+          🏛 Municipal Action Plan
+        </h2>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(180px, 1fr))',
+
+            gap: '1rem',
+          }}
+        >
+          {[
+            'Identify Risk Zones',
+            'Allocate Repair Teams',
+            'Schedule Maintenance',
+            'Monitor Road Health',
+          ].map((step, index) => (
             <div
-              key={report.id}
-
-              onClick={() => {
-                localStorage.setItem(
-                  'selectedPothole',
-                  JSON.stringify(report)
-                )
-
-                setTab('map')
-              }}
-
+              key={index}
               style={{
                 background:
-                  'rgba(255,255,255,0.08)',
+                  'rgba(255,255,255,0.04)',
 
-                backdropFilter:
-                  'blur(14px)',
+                padding: '1.5rem',
 
-                border:
-                  `1px solid ${severityData.color}`,
+                borderRadius: '20px',
 
-                borderLeft:
-                  `8px solid ${severityData.color}`,
+                textAlign: 'center',
 
-                borderRadius: '24px',
-
-                padding: '1.4rem',
-
-                boxShadow:
-                  severityData.glow,
-
-                transition:
-                  'all 0.25s ease',
-
-                cursor: 'pointer',
+                color: 'white',
               }}
             >
               <div
                 style={{
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '50%',
+
+                  background:
+                    'linear-gradient(135deg,#2563eb,#7c3aed)',
+
                   display: 'flex',
-                  justifyContent:
-                    'space-between',
 
                   alignItems: 'center',
 
-                  marginBottom: '1rem',
+                  justifyContent:
+                    'center',
+
+                  margin:
+                    '0 auto 1rem auto',
+
+                  fontWeight: 'bold',
+
+                  fontSize: '1.2rem',
                 }}
               >
-                <div>
-                  <h2
-                    style={{
-                      margin: 0,
-
-                      fontSize: '1.5rem',
-
-                      color:
-                        severityData.color,
-                    }}
-                  >
-                    {severityData.emoji}{' '}
-                    {
-                      severityData.label
-                    }{' '}
-                    Pothole
-                  </h2>
-                </div>
-
-                <div
-                  style={{
-                    background:
-                      severityData.color,
-
-                    padding:
-                      '0.5rem 1rem',
-
-                    borderRadius:
-                      '999px',
-
-                    fontWeight: '700',
-
-                    color: 'white',
-
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  {report.reportCount ||
-                    1}{' '}
-                  Reports
-                </div>
+                {index + 1}
               </div>
 
-              <div
+              <p
                 style={{
-                  display: 'grid',
-
-                  gridTemplateColumns:
-                    'repeat(auto-fit,minmax(180px,1fr))',
-
-                  gap: '1rem',
+                  margin: 0,
+                  lineHeight: '1.6',
                 }}
               >
-                <div
-                  style={{
-                    background:
-                      'rgba(255,255,255,0.05)',
-
-                    padding: '1rem',
-
-                    borderRadius:
-                      '16px',
-                  }}
-                >
-                  <p
-                    style={{
-                      color: '#94a3b8',
-
-                      marginBottom:
-                        '0.4rem',
-                    }}
-                  >
-                    Severity Score
-                  </p>
-
-                  <h3
-                    style={{
-                      margin: 0,
-
-                      fontSize: '1.5rem',
-                    }}
-                  >
-                    {report.severity}
-                  </h3>
-                </div>
-
-                <div
-                  style={{
-                    background:
-                      'rgba(255,255,255,0.05)',
-
-                    padding: '1rem',
-
-                    borderRadius:
-                      '16px',
-                  }}
-                >
-                  <p
-                    style={{
-                      color: '#94a3b8',
-
-                      marginBottom:
-                        '0.4rem',
-                    }}
-                  >
-                    Latitude
-                  </p>
-
-                  <h3
-                    style={{
-                      margin: 0,
-
-                      fontSize: '1rem',
-                    }}
-                  >
-                    {report.lat.toFixed(
-                      5
-                    )}
-                  </h3>
-                </div>
-
-                <div
-                  style={{
-                    background:
-                      'rgba(255,255,255,0.05)',
-
-                    padding: '1rem',
-
-                    borderRadius:
-                      '16px',
-                  }}
-                >
-                  <p
-                    style={{
-                      color: '#94a3b8',
-
-                      marginBottom:
-                        '0.4rem',
-                    }}
-                  >
-                    Longitude
-                  </p>
-
-                  <h3
-                    style={{
-                      margin: 0,
-
-                      fontSize: '1rem',
-                    }}
-                  >
-                    {report.lng.toFixed(
-                      5
-                    )}
-                  </h3>
-                </div>
-              </div>
+                {step}
+              </p>
             </div>
-          )
-        })}
+          ))}
+        </div>
       </div>
     </div>
   )
 }
 
-export default Reports
+export default Report

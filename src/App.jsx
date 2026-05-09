@@ -1,121 +1,56 @@
-import { useState, useRef } from 'react'
+app.jsx
 
-import Scanner from './components/Scanner.jsx'
-import Map from './components/Map.jsx'
-import Reports from './components/Reports.jsx'
+import { useState } from 'react'
+
+import Scanner from './components/Scanner'
+import Map from './components/Map'
+import Report from './components/Report'
 
 function App() {
   const [tab, setTab] =
     useState('scanner')
 
-  const touchStartX =
-    useRef(0)
-
-  const touchEndX =
-    useRef(0)
-
-  const tabs = [
-    'scanner',
-    'map',
-    'reports',
-  ]
-
-  const handleTouchStart = (
-    e
-  ) => {
-    touchStartX.current =
-      e.changedTouches[0].screenX
-  }
-
-  const handleTouchEnd = (e) => {
-    touchEndX.current =
-      e.changedTouches[0].screenX
-
-    const delta =
-      touchStartX.current -
-      touchEndX.current
-
-    const currentIndex =
-      tabs.indexOf(tab)
-
-    // Swipe left
-    if (delta > 70) {
-      const nextIndex =
-        Math.min(
-          currentIndex + 1,
-          tabs.length - 1
-        )
-
-      setTab(tabs[nextIndex])
-    }
-
-    // Swipe right
-    if (delta < -70) {
-      const prevIndex =
-        Math.max(
-          currentIndex - 1,
-          0
-        )
-
-      setTab(tabs[prevIndex])
-    }
-  }
-
   return (
     <div
-      onTouchStart={
-        handleTouchStart
-      }
-      onTouchEnd={handleTouchEnd}
       style={{
         minHeight: '100vh',
-
         background:
-          'linear-gradient(180deg,#0f172a,#020617)',
+          'linear-gradient(to bottom, #020617, #0f172a)',
+
+        padding: '1rem',
       }}
     >
       <div
         style={{
           display: 'flex',
-
-          justifyContent:
-            'center',
-
           gap: '1rem',
-
-          padding: '1rem',
-
-          position: 'sticky',
-
-          top: 0,
-
-          zIndex: 999,
-
-          backdropFilter:
-            'blur(10px)',
+          marginBottom: '2rem',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
         }}
       >
-        {tabs.map((t) => (
+        {[
+          'scanner',
+          'map',
+          'report',
+        ].map((item) => (
           <button
-            key={t}
-            onClick={() =>
-              setTab(t)
-            }
+            key={item}
+            onClick={() => setTab(item)}
             style={{
               padding:
-                '0.8rem 1.4rem',
-
-              borderRadius:
-                '999px',
+                '0.9rem 1.5rem',
 
               border: 'none',
+
+              borderRadius: '999px',
 
               cursor: 'pointer',
 
               background:
-                tab === t
+                tab === item
                   ? '#2563eb'
-                  : 'rgba(255,255,255,0.08)',
+                  : '#1e293b',
 
               color: 'white',
 
@@ -125,7 +60,7 @@ function App() {
                 'capitalize',
             }}
           >
-            {t}
+            {item}
           </button>
         ))}
       </div>
@@ -134,14 +69,10 @@ function App() {
         <Scanner />
       )}
 
-      {tab === 'map' && (
-        <Map />
-      )}
+      {tab === 'map' && <Map />}
 
-      {tab === 'reports' && (
-        <Reports
-          setTab={setTab}
-        />
+      {tab === 'report' && (
+        <Report />
       )}
     </div>
   )

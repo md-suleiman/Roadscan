@@ -81,7 +81,7 @@ const mergeNearbyPotholes = (
   return merged
 }
 
-function Reports() {
+function Reports({ setTab }) {
   const [reports, setReports] =
     useState([])
 
@@ -186,6 +186,16 @@ function Reports() {
           return (
             <div
               key={report.id}
+
+              onClick={() => {
+                localStorage.setItem(
+                  'selectedPothole',
+                  JSON.stringify(report)
+                )
+
+                setTab('map')
+              }}
+
               style={{
                 background:
                   'rgba(255,255,255,0.08)',
@@ -208,6 +218,8 @@ function Reports() {
 
                 transition:
                   'all 0.25s ease',
+
+                cursor: 'pointer',
               }}
             >
               <div
@@ -215,7 +227,9 @@ function Reports() {
                   display: 'flex',
                   justifyContent:
                     'space-between',
+
                   alignItems: 'center',
+
                   marginBottom: '1rem',
                 }}
               >
@@ -223,7 +237,9 @@ function Reports() {
                   <h2
                     style={{
                       margin: 0,
+
                       fontSize: '1.5rem',
+
                       color:
                         severityData.color,
                     }}
@@ -240,12 +256,17 @@ function Reports() {
                   style={{
                     background:
                       severityData.color,
+
                     padding:
                       '0.5rem 1rem',
+
                     borderRadius:
                       '999px',
+
                     fontWeight: '700',
+
                     color: 'white',
+
                     fontSize: '0.9rem',
                   }}
                 >
@@ -258,8 +279,10 @@ function Reports() {
               <div
                 style={{
                   display: 'grid',
+
                   gridTemplateColumns:
                     'repeat(auto-fit,minmax(180px,1fr))',
+
                   gap: '1rem',
                 }}
               >
@@ -267,7 +290,9 @@ function Reports() {
                   style={{
                     background:
                       'rgba(255,255,255,0.05)',
+
                     padding: '1rem',
+
                     borderRadius:
                       '16px',
                   }}
@@ -275,6 +300,7 @@ function Reports() {
                   <p
                     style={{
                       color: '#94a3b8',
+
                       marginBottom:
                         '0.4rem',
                     }}
@@ -285,6 +311,7 @@ function Reports() {
                   <h3
                     style={{
                       margin: 0,
+
                       fontSize: '1.5rem',
                     }}
                   >
@@ -296,7 +323,9 @@ function Reports() {
                   style={{
                     background:
                       'rgba(255,255,255,0.05)',
+
                     padding: '1rem',
+
                     borderRadius:
                       '16px',
                   }}
@@ -304,6 +333,7 @@ function Reports() {
                   <p
                     style={{
                       color: '#94a3b8',
+
                       marginBottom:
                         '0.4rem',
                     }}
@@ -314,6 +344,7 @@ function Reports() {
                   <h3
                     style={{
                       margin: 0,
+
                       fontSize: '1rem',
                     }}
                   >
@@ -327,7 +358,9 @@ function Reports() {
                   style={{
                     background:
                       'rgba(255,255,255,0.05)',
+
                     padding: '1rem',
+
                     borderRadius:
                       '16px',
                   }}
@@ -335,6 +368,7 @@ function Reports() {
                   <p
                     style={{
                       color: '#94a3b8',
+
                       marginBottom:
                         '0.4rem',
                     }}
@@ -345,6 +379,7 @@ function Reports() {
                   <h3
                     style={{
                       margin: 0,
+
                       fontSize: '1rem',
                     }}
                   >

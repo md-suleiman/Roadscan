@@ -109,6 +109,9 @@ function Map() {
   const [loading, setLoading] =
     useState(true)
 
+  const [selectedPothole, setSelectedPothole] =
+    useState(null)
+
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, 'potholes'),
@@ -127,6 +130,19 @@ function Map() {
     )
 
     return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const saved =
+      localStorage.getItem(
+        'selectedPothole'
+      )
+
+    if (saved) {
+      setSelectedPothole(
+        JSON.parse(saved)
+      )
+    }
   }, [])
 
   useEffect(() => {
@@ -348,8 +364,13 @@ function Map() {
 
       <MapContainer
         center={[
-          userLocation.lat,
-          userLocation.lng,
+          selectedPothole
+            ? selectedPothole.lat
+            : userLocation.lat,
+
+          selectedPothole
+            ? selectedPothole.lng
+            : userLocation.lng,
         ]}
         zoom={18}
         style={{
@@ -381,26 +402,65 @@ function Map() {
               pothole.severity
             )
 
+          const isSelected =
+            selectedPothole?.id ===
+            pothole.id
+
           return (
             <CircleMarker
               key={pothole.id}
+
               center={[
                 pothole.lat,
                 pothole.lng,
               ]}
-              radius={8}
+
+              radius={
+                isSelected ? 14 : 8
+              }
+
+              eventHandlers={{
+                click: () => {
+                  setSelectedPothole(
+                    pothole
+                  )
+                },
+              }}
+
               pathOptions={{
-                color: style.color,
+                color: isSelected
+                  ? '#ffffff'
+                  : style.color,
+
                 fillColor:
                   style.fillColor,
+
                 fillOpacity: 1,
+
+                weight: isSelected
+                  ? 4
+                  : 2,
               }}
             >
-              <Popup>
+              <Popup autoOpen={isSelected}>
                 <div>
                   <h3>
                     Road Hazard
                   </h3>
+
+                  {isSelected && (
+                    <p
+                      style={{
+                        color:
+                          '#ef4444',
+
+                        fontWeight:
+                          '700',
+                      }}
+                    >
+                      Selected Hazard
+                    </p>
+                  )}
 
                   <p>
                     Severity:{' '}

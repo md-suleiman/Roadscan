@@ -4,6 +4,9 @@ import {
   db,
   collection,
   addDoc,
+  getDocs,
+  updateDoc,
+  doc,
 } from '../firebase'
 
 function Scanner() {
@@ -36,6 +39,43 @@ function Scanner() {
     26,
   ]
 
+  const getDistance = (
+    lat1,
+    lon1,
+    lat2,
+    lon2
+  ) => {
+    const R = 6371e3
+
+    const toRad = (deg) =>
+      (deg * Math.PI) / 180
+
+    const dLat = toRad(
+      lat2 - lat1
+    )
+
+    const dLon = toRad(
+      lon2 - lon1
+    )
+
+    const a =
+      Math.sin(dLat / 2) *
+        Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2)
+
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      )
+
+    return R * c
+  }
+
   const reportPothole = async (
     severity
   ) => {
@@ -58,28 +98,84 @@ function Scanner() {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const report = {
-          lat:
-            position.coords
-              .latitude,
+        const lat =
+          position.coords.latitude
 
-          lng:
-            position.coords
-              .longitude,
+        const lng =
+          position.coords.longitude
 
-          severity,
+        const potholesSnapshot =
+          await getDocs(
+            collection(
+              db,
+              'potholes'
+            )
+          )
 
-          timestamp:
-            new Date().toISOString(),
+        let merged = false
+
+        for (const pothole of potholesSnapshot.docs) {
+          const data =
+            pothole.data()
+
+          const distance =
+            getDistance(
+              lat,
+              lng,
+              data.lat,
+              data.lng
+            )
+
+          // Merge if within 15 meters
+          if (distance < 15) {
+            await updateDoc(
+              doc(
+                db,
+                'potholes',
+                pothole.id
+              ),
+              {
+                severity:
+                  Math.max(
+                    severity,
+                    data.severity ||
+                      0
+                  ),
+
+                reportCount:
+                  (data.reportCount ||
+                    1) + 1,
+
+                lastReported:
+                  new Date().toISOString(),
+              }
+            )
+
+            merged = true
+
+            break
+          }
         }
 
-        await addDoc(
-          collection(
-            db,
-            'potholes'
-          ),
-          report
-        )
+        if (!merged) {
+          await addDoc(
+            collection(
+              db,
+              'potholes'
+            ),
+            {
+              lat,
+              lng,
+
+              severity,
+
+              reportCount: 1,
+
+              timestamp:
+                new Date().toISOString(),
+            }
+          )
+        }
 
         let label = 'Minor'
 
@@ -89,7 +185,9 @@ function Scanner() {
           label = 'Moderate'
 
         setStatus(
-          `${label} pothole detected`
+          merged
+            ? `${label} pothole merged`
+            : `${label} pothole detected`
         )
       },
 
@@ -113,10 +211,6 @@ function Scanner() {
               await navigator.wakeLock.request(
                 'screen'
               )
-
-            console.log(
-              'Wake Lock active'
-            )
           }
         } catch (err) {
           console.log(err)
@@ -228,8 +322,9 @@ function Scanner() {
 
       if (
         recentDeltas.length > 20
-      )
+      ) {
         recentDeltas.shift()
+      }
 
       setMotionValue(
         delta.toFixed(2)
@@ -343,8 +438,7 @@ function Scanner() {
           fontSize: '1.1rem',
         }}
       >
-        AI Pothole Detection
-        System
+        AI Pothole Detection System
       </p>
 
       <div
@@ -368,6 +462,19 @@ function Scanner() {
         >
           {status}
         </p>
+
+        {detecting && (
+          <p
+            style={{
+              color: '#22c55e',
+              marginTop: '0.8rem',
+              fontSize: '0.95rem',
+              fontWeight: '600',
+            }}
+          >
+            Background Monitoring Active
+          </p>
+        )}
 
         {lastDetection && (
           <p

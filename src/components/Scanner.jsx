@@ -438,18 +438,23 @@ function Scanner() {
 
       <button
         onClick={() => {
-          const severities = [
-            14,
-            20,
-            32,
-          ]
+          const random =
+            Math.random()
 
-          const randomSeverity =
-            severities[
-              Math.floor(
-                Math.random() * 3
-              )
-            ]
+          let randomSeverity
+
+          if (random < 0.2) {
+            // 20%
+            randomSeverity = 14
+          } else if (
+            random < 0.5
+          ) {
+            // 30%
+            randomSeverity = 20
+          } else {
+            // 50%
+            randomSeverity = 32
+          }
 
           reportPothole(
             randomSeverity

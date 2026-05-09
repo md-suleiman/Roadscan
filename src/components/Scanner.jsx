@@ -4,10 +4,6 @@ import {
   db,
   collection,
   addDoc,
-  getDocs,
-  query,
-  updateDoc,
-  doc,
 } from '../firebase'
 
 function Scanner() {
@@ -31,6 +27,17 @@ function Scanner() {
   const [motionValue, setMotionValue] =
     useState(0)
 
+  // Weighted randomization
+  // Moderate appears slightly more often
+  const demoSeverities = [
+    12,
+    12,
+    18,
+    18,
+    18,
+    26,
+  ]
+
   const reportPothole = async (
     severity
   ) => {
@@ -53,96 +60,38 @@ function Scanner() {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const lat =
-          position.coords.latitude
+        const report = {
+          lat:
+            position.coords
+              .latitude,
 
-        const lng =
-          position.coords.longitude
+          lng:
+            position.coords
+              .longitude,
 
-        const potholesRef =
+          severity,
+
+          timestamp:
+            new Date().toISOString(),
+        }
+
+        await addDoc(
           collection(
             db,
             'potholes'
-          )
-
-        const snapshot =
-          await getDocs(
-            query(potholesRef)
-          )
-
-        let merged = false
-
-        for (const pothole of snapshot.docs) {
-          const data =
-            pothole.data()
-
-          const distance =
-            getDistance(
-              lat,
-              lng,
-              data.lat,
-              data.lng
-            )
-
-          // Merge if within 15 meters
-          if (distance < 15) {
-            await updateDoc(
-              doc(
-                db,
-                'potholes',
-                pothole.id
-              ),
-              {
-                reports:
-                  (data.reports ||
-                    1) + 1,
-
-                severity:
-                  Math.max(
-                    severity,
-                    data.severity ||
-                      0
-                  ),
-
-                timestamp:
-                  new Date().toISOString(),
-              }
-            )
-
-            merged = true
-
-            break
-          }
-        }
-
-        if (!merged) {
-          await addDoc(
-            potholesRef,
-            {
-              lat,
-              lng,
-
-              severity,
-
-              reports: 1,
-
-              timestamp:
-                new Date().toISOString(),
-            }
-          )
-        }
+          ),
+          report
+        )
 
         let label = 'Minor'
 
-        if (severity >= 26)
+        if (severity > 22)
           label = 'Severe'
-        else if (severity >= 18)
+        else if (severity > 15)
           label = 'Moderate'
 
         setStatus(
-          merged
-            ? `${label} pothole merged`
-            : `${label} pothole detected`
+          `${label} pothole detected`
         )
       },
 
@@ -153,61 +102,21 @@ function Scanner() {
     )
   }
 
-  const getDistance = (
-    lat1,
-    lon1,
-    lat2,
-    lon2
-  ) => {
-    const R = 6371e3
-
-    const φ1 =
-      (lat1 * Math.PI) / 180
-
-    const φ2 =
-      (lat2 * Math.PI) / 180
-
-    const Δφ =
-      ((lat2 - lat1) *
-        Math.PI) /
-      180
-
-    const Δλ =
-      ((lon2 - lon1) *
-        Math.PI) /
-      180
-
-    const a =
-      Math.sin(Δφ / 2) *
-        Math.sin(Δφ / 2) +
-      Math.cos(φ1) *
-        Math.cos(φ2) *
-        Math.sin(Δλ / 2) *
-        Math.sin(Δλ / 2)
-
-    const c =
-      2 *
-      Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1 - a)
-      )
-
-    return R * c
-  }
-
   useEffect(() => {
     let lastTrigger = 0
 
-    const recentReadings = []
+    let lastZ = null
+
+    const recentDeltas = []
 
     const isWalkingPattern = () => {
       const now = Date.now()
 
       const spikes =
-        recentReadings.filter(
+        recentDeltas.filter(
           (d) =>
             now - d.time < 4000 &&
-            d.value > 10
+            d.value > 4
         )
 
       if (spikes.length < 4)
@@ -232,7 +141,7 @@ function Scanner() {
           0
         ) / intervals.length
 
-      const rhythmic =
+      const isRhythmic =
         intervals.every(
           (i) =>
             Math.abs(i - avg) <
@@ -240,7 +149,7 @@ function Scanner() {
         )
 
       return (
-        rhythmic &&
+        isRhythmic &&
         avg > 350 &&
         avg < 900
       )
@@ -248,55 +157,54 @@ function Scanner() {
 
     const isSpeedbreaker = () => {
       const last4 =
-        recentReadings.slice(-4)
+        recentDeltas.slice(-4)
 
       if (last4.length < 4)
         return false
 
       return last4.every(
-        (d) => d.value > 14
+        (d) => d.value > 5
       )
     }
 
     const handleMotion = (
       event
     ) => {
-      const acc =
-        event.accelerationIncludingGravity
+      const currentZ =
+        event
+          .accelerationIncludingGravity
+          ?.z || 0
 
-      if (!acc) return
+      if (lastZ === null) {
+        lastZ = currentZ
+        return
+      }
 
-      const x = acc.x || 0
-      const y = acc.y || 0
-      const z = acc.z || 0
+      const delta = Math.abs(
+        currentZ - lastZ
+      )
 
-      const intensity =
-        Math.sqrt(
-          x * x +
-            y * y +
-            z * z
-        )
+      lastZ = currentZ
 
-      recentReadings.push({
-        value: intensity,
+      recentDeltas.push({
+        value: delta,
         time: Date.now(),
       })
 
       if (
-        recentReadings.length > 20
-      ) {
-        recentReadings.shift()
-      }
+        recentDeltas.length > 20
+      )
+        recentDeltas.shift()
 
       setMotionValue(
-        intensity.toFixed(2)
+        delta.toFixed(2)
       )
 
       const now = Date.now()
 
       if (
-        intensity > 12 &&
-        now - lastTrigger > 1800
+        delta > 8 &&
+        now - lastTrigger > 1500
       ) {
         if (isWalkingPattern()) {
           setStatus(
@@ -318,14 +226,12 @@ function Scanner() {
 
         let severity
 
-        if (intensity > 28) {
-          severity = 32
-        } else if (
-          intensity > 18
-        ) {
-          severity = 20
+        if (delta > 22) {
+          severity = 26
+        } else if (delta > 14) {
+          severity = 19
         } else {
-          severity = 14
+          severity = 12
         }
 
         reportPothole(severity)
@@ -498,7 +404,7 @@ function Scanner() {
             fontSize: '1rem',
           }}
         >
-          Motion Intensity:{' '}
+          Motion Value:{' '}
           {motionValue}
         </p>
       </div>
@@ -542,20 +448,13 @@ function Scanner() {
 
       <button
         onClick={() => {
-          const random =
-            Math.random()
-
-          let randomSeverity
-
-          if (random < 0.2) {
-            randomSeverity = 14
-          } else if (
-            random < 0.5
-          ) {
-            randomSeverity = 20
-          } else {
-            randomSeverity = 32
-          }
+          const randomSeverity =
+            demoSeverities[
+              Math.floor(
+                Math.random() *
+                  demoSeverities.length
+              )
+            ]
 
           reportPothole(
             randomSeverity

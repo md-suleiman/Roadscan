@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import {
   db,
   collection,
-  addDoc,
+ addDoc,
 } from '../firebase'
 
 function Scanner() {
@@ -26,16 +26,19 @@ function Scanner() {
     {
       value: 8,
       label: 'Minor',
+      color: '#eab308',
     },
 
     {
       value: 17,
       label: 'Moderate',
+      color: '#f59e0b',
     },
 
     {
       value: 24,
       label: 'Severe',
+      color: '#ef4444',
     },
   ]
 
@@ -66,17 +69,26 @@ function Scanner() {
       let level = null
 
       if (total > 15) {
-        level = 'Severe'
+        level = {
+          label: 'Severe',
+          value: total,
+        }
       } else if (total > 10) {
-        level = 'Moderate'
+        level = {
+          label: 'Moderate',
+          value: total,
+        }
       } else if (total > 7) {
-        level = 'Minor'
+        level = {
+          label: 'Minor',
+          value: total,
+        }
       }
 
       if (level) {
         setPotholes((prev) => prev + 1)
 
-        setSeverity(level)
+        setSeverity(level.label)
 
         setLastDetection(now)
 
@@ -96,9 +108,11 @@ function Scanner() {
                   position.coords
                     .longitude,
 
-                severity: total,
+                severity:
+                  level.value,
 
-                label: level,
+                label:
+                  level.label,
 
                 timestamp:
                   Date.now(),
@@ -120,7 +134,10 @@ function Scanner() {
         handleMotion
       )
     }
-  }, [isScanning, lastDetection])
+  }, [
+    isScanning,
+    lastDetection,
+  ])
 
   const simulateDetection =
     async () => {
@@ -170,6 +187,21 @@ function Scanner() {
       )
     }
 
+  const getSeverityColor = () => {
+    if (severity === 'Severe')
+      return '#ef4444'
+
+    if (
+      severity === 'Moderate'
+    )
+      return '#f59e0b'
+
+    if (severity === 'Minor')
+      return '#eab308'
+
+    return '#94a3b8'
+  }
+
   return (
     <div
       style={{
@@ -177,89 +209,205 @@ function Scanner() {
         color: 'white',
       }}
     >
-      <h1>
+      <h1
+        style={{
+          fontSize: '2.5rem',
+          marginBottom: '0.5rem',
+        }}
+      >
         Road Hazard Scanner
       </h1>
 
-      <button
-        onClick={() =>
-          setIsScanning(
-            !isScanning
-          )
-        }
+      <p
         style={{
-          padding:
-            '1rem 2rem',
-
-          borderRadius: '14px',
-
-          border: 'none',
-
-          background: isScanning
-            ? '#ef4444'
-            : '#2563eb',
-
-          color: 'white',
-
-          fontWeight: 'bold',
-
-          cursor: 'pointer',
-
-          marginRight: '1rem',
+          color: '#94a3b8',
+          marginBottom: '2rem',
         }}
       >
-        {isScanning
-          ? 'Stop Scanning'
-          : 'Start Scanning'}
-      </button>
-
-      <button
-        onClick={
-          simulateDetection
-        }
-        style={{
-          padding:
-            '1rem 2rem',
-
-          borderRadius: '14px',
-
-          border: 'none',
-
-          background: '#22c55e',
-
-          color: 'white',
-
-          fontWeight: 'bold',
-
-          cursor: 'pointer',
-        }}
-      >
-        Simulate Detection
-      </button>
+        AI-powered road anomaly
+        detection system
+      </p>
 
       <div
         style={{
-          marginTop: '2rem',
-          fontSize: '1.2rem',
-          lineHeight: '2',
+          display: 'flex',
+          gap: '1rem',
+          marginBottom: '2rem',
+          flexWrap: 'wrap',
         }}
       >
-        <p>
-          Total Detections:{' '}
-          {potholes}
-        </p>
+        <button
+          onClick={() =>
+            setIsScanning(
+              !isScanning
+            )
+          }
+          style={{
+            padding:
+              '1rem 2rem',
 
-        <p>
-          Latest Severity:{' '}
-          {severity}
-        </p>
+            borderRadius: '16px',
 
-        <p>
-          Scanner Status:{' '}
+            border: 'none',
+
+            background: isScanning
+              ? '#ef4444'
+              : '#2563eb',
+
+            color: 'white',
+
+            fontWeight: 'bold',
+
+            fontSize: '1rem',
+
+            cursor: 'pointer',
+          }}
+        >
           {isScanning
-            ? 'ACTIVE'
-            : 'INACTIVE'}
-        </p>
+            ? 'Stop Scanning'
+            : 'Start Scanning'}
+        </button>
+
+        <button
+          onClick={
+            simulateDetection
+          }
+          style={{
+            padding:
+              '1rem 2rem',
+
+            borderRadius: '16px',
+
+            border: 'none',
+
+            background:
+              'linear-gradient(135deg,#22c55e,#16a34a)',
+
+            color: 'white',
+
+            fontWeight: 'bold',
+
+            fontSize: '1rem',
+
+            cursor: 'pointer',
+          }}
+        >
+          Simulate Detection
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(240px, 1fr))',
+
+          gap: '1.5rem',
+        }}
+      >
+        <div
+          style={{
+            background:
+              'rgba(255,255,255,0.05)',
+
+            padding: '2rem',
+
+            borderRadius: '24px',
+
+            border:
+              '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <h2
+            style={{
+              color: '#94a3b8',
+              marginBottom: '1rem',
+            }}
+          >
+            Total Detections
+          </h2>
+
+          <h1
+            style={{
+              fontSize: '3rem',
+              margin: 0,
+            }}
+          >
+            {potholes}
+          </h1>
+        </div>
+
+        <div
+          style={{
+            background:
+              'rgba(255,255,255,0.05)',
+
+            padding: '2rem',
+
+            borderRadius: '24px',
+
+            border:
+              '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <h2
+            style={{
+              color: '#94a3b8',
+              marginBottom: '1rem',
+            }}
+          >
+            Latest Severity
+          </h2>
+
+          <h1
+            style={{
+              fontSize: '2.5rem',
+              margin: 0,
+              color:
+                getSeverityColor(),
+            }}
+          >
+            {severity}
+          </h1>
+        </div>
+
+        <div
+          style={{
+            background:
+              'rgba(255,255,255,0.05)',
+
+            padding: '2rem',
+
+            borderRadius: '24px',
+
+            border:
+              '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <h2
+            style={{
+              color: '#94a3b8',
+              marginBottom: '1rem',
+            }}
+          >
+            Scanner Status
+          </h2>
+
+          <h1
+            style={{
+              fontSize: '2rem',
+              margin: 0,
+              color: isScanning
+                ? '#22c55e'
+                : '#ef4444',
+            }}
+          >
+            {isScanning
+              ? 'ACTIVE'
+              : 'INACTIVE'}
+          </h1>
+        </div>
       </div>
     </div>
   )

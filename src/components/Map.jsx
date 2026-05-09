@@ -23,16 +23,16 @@ function Map() {
     useState([])
 
   const [userLocation, setUserLocation] =
-    useState({
-      lat: 12.9716,
-      lng: 77.5946,
-    })
+    useState(null)
 
   const [warning, setWarning] =
     useState(null)
 
   const [heading, setHeading] =
     useState(0)
+
+  const [loading, setLoading] =
+    useState(true)
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -60,10 +60,13 @@ function Map() {
           lng:
             position.coords.longitude,
         })
+
+        setLoading(false)
       },
 
       (error) => {
         console.log(error)
+        setLoading(false)
       },
 
       {
@@ -144,8 +147,7 @@ function Map() {
 
     return () => {
       navigator.geolocation.clearWatch(
-        watchId
-      )
+        watchId)
 
       window.removeEventListener(
         'deviceorientation',
@@ -249,6 +251,23 @@ function Map() {
     iconSize: [34, 34],
     iconAnchor: [17, 17],
   })
+
+  if (loading || !userLocation) {
+    return (
+      <div
+        style={{
+          height: '80vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontSize: '1.2rem',
+        }}
+      >
+        Loading map...
+      </div>
+    )
+  }
 
   return (
     <div

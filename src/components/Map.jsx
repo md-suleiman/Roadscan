@@ -19,25 +19,6 @@ import {
   onSnapshot,
 } from '../firebase'
 
-const userArrowIcon = L.divIcon({
-  className: '',
-
-  html: `
-    <div style="
-      width: 0;
-      height: 0;
-      border-left: 12px solid transparent;
-      border-right: 12px solid transparent;
-      border-bottom: 24px solid #3b82f6;
-      transform: rotate(0deg);
-      filter: drop-shadow(0 0 6px rgba(59,130,246,0.7));
-    "></div>
-  `,
-
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-})
-
 function RecenterMap({
   userLocation,
 }) {
@@ -45,14 +26,14 @@ function RecenterMap({
 
   useEffect(() => {
     if (userLocation) {
-      map.setView(
+      map.flyTo(
         [
           userLocation.lat,
           userLocation.lng,
         ],
         18,
         {
-          animate: true,
+          duration: 1.2,
         }
       )
     }
@@ -71,6 +52,9 @@ function Map() {
   const [warning, setWarning] =
     useState(null)
 
+  const [heading, setHeading] =
+    useState(0)
+
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, 'potholes'),
@@ -88,6 +72,18 @@ function Map() {
   }, [])
 
   useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat:
+            position.coords.latitude,
+
+          lng:
+            position.coords.longitude,
+        })
+      }
+    )
+
     const watchId =
       navigator.geolocation.watchPosition(
         (position) => {
@@ -141,15 +137,34 @@ function Map() {
 
         {
           enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 5000,
+          maximumAge: 1000,
+          timeout: 3000,
         }
       )
 
-    return () =>
+    const handleOrientation = (
+      event
+    ) => {
+      if (event.alpha != null) {
+        setHeading(event.alpha)
+      }
+    }
+
+    window.addEventListener(
+      'deviceorientation',
+      handleOrientation
+    )
+
+    return () => {
       navigator.geolocation.clearWatch(
         watchId
       )
+
+      window.removeEventListener(
+        'deviceorientation',
+        handleOrientation
+      )
+    }
   }, [potholes])
 
   const getDistance = (
@@ -216,6 +231,26 @@ function Map() {
       fillColor: '#eab308',
     }
   }
+
+  const userArrowIcon = L.divIcon({
+    className: '',
+
+    html: `
+      <div style="
+        width: 0;
+        height: 0;
+        border-left: 12px solid transparent;
+        border-right: 12px solid transparent;
+        border-bottom: 24px solid #3b82f6;
+        transform: rotate(${heading}deg);
+        transform-origin: center;
+        filter: drop-shadow(0 0 6px rgba(59,130,246,0.7));
+      "></div>
+    `,
+
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  })
 
   return (
     <div
@@ -303,7 +338,7 @@ function Map() {
                 pothole.lat,
                 pothole.lng,
               ]}
-              radius={6}
+              radius={5}
               pathOptions={{
                 color: style.color,
                 fillColor:

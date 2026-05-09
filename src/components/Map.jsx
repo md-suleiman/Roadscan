@@ -6,7 +6,6 @@ import {
   Popup,
   Circle,
   Marker,
-  useMap,
 } from 'react-leaflet'
 
 import L from 'leaflet'
@@ -19,41 +18,21 @@ import {
   onSnapshot,
 } from '../firebase'
 
-function RecenterMap({
-  userLocation,
-}) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (userLocation) {
-      map.setView(
-        [
-          userLocation.lat,
-          userLocation.lng,
-        ],
-        18
-      )
-    }
-  }, [userLocation])
-
-  return null
-}
-
 function Map() {
   const [potholes, setPotholes] =
     useState([])
 
   const [userLocation, setUserLocation] =
-    useState({
-      lat: 12.9716,
-      lng: 77.5946,
-    })
+    useState(null)
 
   const [warning, setWarning] =
     useState(null)
 
   const [heading, setHeading] =
     useState(0)
+
+  const [loading, setLoading] =
+    useState(true)
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -81,10 +60,13 @@ function Map() {
           lng:
             position.coords.longitude,
         })
+
+        setLoading(false)
       },
 
       (error) => {
         console.log(error)
+        setLoading(false)
       },
 
       {
@@ -165,8 +147,7 @@ function Map() {
 
     return () => {
       navigator.geolocation.clearWatch(
-        watchId
-      )
+        watchId)
 
       window.removeEventListener(
         'deviceorientation',
@@ -271,6 +252,23 @@ function Map() {
     iconAnchor: [17, 17],
   })
 
+  if (loading || !userLocation) {
+    return (
+      <div
+        style={{
+          height: '80vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontSize: '1.2rem',
+        }}
+      >
+        Loading map...
+      </div>
+    )
+  }
+
   return (
     <div
       style={{
@@ -320,10 +318,6 @@ function Map() {
           borderRadius: '24px',
         }}
       >
-        <RecenterMap
-          userLocation={userLocation}
-        />
-
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
           url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'

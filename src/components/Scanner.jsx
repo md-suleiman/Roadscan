@@ -84,7 +84,7 @@ function Scanner() {
               data.lng
             )
 
-          // Merge nearby potholes
+          // Merge if within 15 meters
           if (distance < 15) {
             await updateDoc(
               doc(
@@ -207,7 +207,7 @@ function Scanner() {
         recentReadings.filter(
           (d) =>
             now - d.time < 4000 &&
-            d.value > 2
+            d.value > 10
         )
 
       if (spikes.length < 4)
@@ -254,7 +254,7 @@ function Scanner() {
         return false
 
       return last4.every(
-        (d) => d.value > 5
+        (d) => d.value > 14
       )
     }
 
@@ -277,25 +277,8 @@ function Scanner() {
             z * z
         )
 
-      // Convert 9.8 gravity baseline to 0
-      let calibratedIntensity =
-        Math.max(
-          0,
-          intensity - 9.8
-        )
-
-      // Deadzone filtering
-      // Removes tiny sensor noise
-      if (
-        calibratedIntensity < 1.2
-      ) {
-        calibratedIntensity = 0
-      }
-
       recentReadings.push({
-        value:
-          calibratedIntensity,
-
+        value: intensity,
         time: Date.now(),
       })
 
@@ -306,16 +289,13 @@ function Scanner() {
       }
 
       setMotionValue(
-        calibratedIntensity.toFixed(
-          2
-        )
+        intensity.toFixed(2)
       )
 
       const now = Date.now()
 
       if (
-        calibratedIntensity >
-          3 &&
+        intensity > 12 &&
         now - lastTrigger > 1800
       ) {
         if (isWalkingPattern()) {
@@ -338,25 +318,14 @@ function Scanner() {
 
         let severity
 
-        // Minor
-        if (
-          calibratedIntensity <=
-          9
-        ) {
-          severity = 14
-        }
-
-        // Moderate
-        else if (
-          calibratedIntensity <=
-          18
+        if (intensity > 28) {
+          severity = 32
+        } else if (
+          intensity > 18
         ) {
           severity = 20
-        }
-
-        // Severe
-        else {
-          severity = 32
+        } else {
+          severity = 14
         }
 
         reportPothole(severity)
@@ -578,18 +547,13 @@ function Scanner() {
 
           let randomSeverity
 
-          // 20%
           if (random < 0.2) {
             randomSeverity = 14
-          }
-
-          // 30%
-          else if (random < 0.5) {
+          } else if (
+            random < 0.5
+          ) {
             randomSeverity = 20
-          }
-
-          // 50%
-          else {
+          } else {
             randomSeverity = 32
           }
 

@@ -27,8 +27,6 @@ function Scanner() {
   const [motionValue, setMotionValue] =
     useState(0)
 
-  // Weighted randomization
-  // Moderate appears slightly more often
   const demoSeverities = [
     12,
     12,
@@ -101,6 +99,43 @@ function Scanner() {
         )
     )
   }
+
+  useEffect(() => {
+    let wakeLock = null
+
+    const enableWakeLock =
+      async () => {
+        try {
+          if (
+            'wakeLock' in navigator
+          ) {
+            wakeLock =
+              await navigator.wakeLock.request(
+                'screen'
+              )
+
+            console.log(
+              'Wake Lock active'
+            )
+          }
+        } catch (err) {
+          console.log(err)
+        }
+      }
+
+    if (detecting) {
+      enableWakeLock()
+    }
+
+    return () => {
+      if (
+        wakeLock &&
+        wakeLock.release
+      ) {
+        wakeLock.release()
+      }
+    }
+  }, [detecting])
 
   useEffect(() => {
     let lastTrigger = 0
@@ -286,20 +321,15 @@ function Scanner() {
     <div
       style={{
         textAlign: 'center',
-
         padding: '2rem',
-
         maxWidth: '500px',
-
         margin: '0 auto',
       }}
     >
       <h2
         style={{
           fontSize: '2.5rem',
-
           marginBottom: '0.5rem',
-
           color: 'white',
         }}
       >
@@ -309,9 +339,7 @@ function Scanner() {
       <p
         style={{
           color: '#94a3b8',
-
           marginBottom: '2rem',
-
           fontSize: '1.1rem',
         }}
       >
@@ -323,13 +351,9 @@ function Scanner() {
         style={{
           background:
             'rgba(255,255,255,0.08)',
-
           padding: '1.5rem',
-
           borderRadius: '24px',
-
           marginBottom: '2rem',
-
           border:
             '1px solid rgba(255,255,255,0.1)',
         }}
@@ -337,11 +361,8 @@ function Scanner() {
         <p
           style={{
             fontSize: '1.1rem',
-
             margin: 0,
-
             color: 'white',
-
             fontWeight: '600',
           }}
         >
@@ -352,9 +373,7 @@ function Scanner() {
           <p
             style={{
               fontSize: '0.95rem',
-
               color: '#cbd5e1',
-
               marginTop: '0.8rem',
             }}
           >
@@ -372,11 +391,8 @@ function Scanner() {
         <p
           style={{
             fontSize: '4rem',
-
             fontWeight: 'bold',
-
             margin: 0,
-
             color: '#38bdf8',
           }}
         >
@@ -386,9 +402,7 @@ function Scanner() {
         <p
           style={{
             color: '#94a3b8',
-
             margin: 0,
-
             fontSize: '1rem',
           }}
         >
@@ -398,9 +412,7 @@ function Scanner() {
         <p
           style={{
             color: '#38bdf8',
-
             marginTop: '1rem',
-
             fontSize: '1rem',
           }}
         >
@@ -418,26 +430,17 @@ function Scanner() {
         style={{
           padding:
             '1rem 2rem',
-
           fontSize: '1rem',
-
           backgroundColor:
             detecting
               ? '#ef4444'
               : '#22c55e',
-
           color: 'white',
-
           border: 'none',
-
           borderRadius: '50px',
-
           cursor: 'pointer',
-
           width: '100%',
-
           marginBottom: '1rem',
-
           fontWeight: '700',
         }}
       >
@@ -463,34 +466,23 @@ function Scanner() {
         style={{
           padding:
             '1rem 2rem',
-
           fontSize: '1rem',
-
           backgroundColor:
             clicked
               ? '#1d4ed8'
               : '#2563eb',
-
           transform: clicked
             ? 'scale(0.96)'
             : 'scale(1)',
-
           color: 'white',
-
           border: 'none',
-
           borderRadius: '50px',
-
           cursor: 'pointer',
-
           width: '100%',
-
           transition:
             'all 0.15s ease',
-
           boxShadow:
             '0 10px 30px rgba(37,99,235,0.35)',
-
           fontWeight: '700',
         }}
       >

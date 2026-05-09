@@ -26,15 +26,12 @@ function RecenterMap({
 
   useEffect(() => {
     if (userLocation) {
-      map.flyTo(
+      map.setView(
         [
           userLocation.lat,
           userLocation.lng,
         ],
-        18,
-        {
-          duration: 1.2,
-        }
+        18
       )
     }
   }, [userLocation])
@@ -138,7 +135,7 @@ function Map() {
         {
           enableHighAccuracy: true,
           maximumAge: 1000,
-          timeout: 3000,
+          timeout: 2500,
         }
       )
 
@@ -237,19 +234,39 @@ function Map() {
 
     html: `
       <div style="
-        width: 0;
-        height: 0;
-        border-left: 12px solid transparent;
-        border-right: 12px solid transparent;
-        border-bottom: 24px solid #3b82f6;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         transform: rotate(${heading}deg);
-        transform-origin: center;
-        filter: drop-shadow(0 0 6px rgba(59,130,246,0.7));
-      "></div>
+      ">
+        <div style="
+          width: 0;
+          height: 0;
+          border-left: 10px solid transparent;
+          border-right: 10px solid transparent;
+          border-bottom: 22px solid #3b82f6;
+          position: absolute;
+          top: 2px;
+          filter: drop-shadow(0 0 4px rgba(59,130,246,0.8));
+        "></div>
+
+        <div style="
+          width: 14px;
+          height: 14px;
+          background: #2563eb;
+          border: 3px solid white;
+          border-radius: 50%;
+          position: absolute;
+          bottom: 3px;
+          box-shadow: 0 0 8px rgba(37,99,235,0.8);
+        "></div>
+      </div>
     `,
 
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
   })
 
   return (
@@ -338,7 +355,7 @@ function Map() {
                 pothole.lat,
                 pothole.lng,
               ]}
-              radius={5}
+              radius={4}
               pathOptions={{
                 color: style.color,
                 fillColor:

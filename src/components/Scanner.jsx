@@ -27,8 +27,6 @@ function Scanner() {
   const [motionValue, setMotionValue] =
     useState(0)
 
-  // Weighted randomization
-  // Moderate appears slightly more often
   const demoSeverities = [
     12,
     12,
@@ -85,9 +83,9 @@ function Scanner() {
 
         let label = 'Minor'
 
-        if (severity > 22)
+        if (severity > 28)
           label = 'Severe'
-        else if (severity > 15)
+        else if (severity > 18)
           label = 'Moderate'
 
         setStatus(
@@ -107,16 +105,16 @@ function Scanner() {
 
     let lastZ = null
 
-    const recentDeltas = []
+    const recentReadings = []
 
     const isWalkingPattern = () => {
       const now = Date.now()
 
       const spikes =
-        recentDeltas.filter(
+        recentReadings.filter(
           (d) =>
             now - d.time < 4000 &&
-            d.value > 4
+            d.value > 10
         )
 
       if (spikes.length < 4)
@@ -141,7 +139,7 @@ function Scanner() {
           0
         ) / intervals.length
 
-      const isRhythmic =
+      const rhythmic =
         intervals.every(
           (i) =>
             Math.abs(i - avg) <
@@ -149,7 +147,7 @@ function Scanner() {
         )
 
       return (
-        isRhythmic &&
+        rhythmic &&
         avg > 350 &&
         avg < 900
       )
@@ -157,55 +155,69 @@ function Scanner() {
 
     const isSpeedbreaker = () => {
       const last4 =
-        recentDeltas.slice(-4)
+        recentReadings.slice(-4)
 
       if (last4.length < 4)
         return false
 
       return last4.every(
-        (d) => d.value > 5
+        (d) => d.value > 14
       )
     }
 
     const handleMotion = (
       event
     ) => {
-      const currentZ =
-        event
-          .accelerationIncludingGravity
-          ?.z || 0
+      const acc =
+        event.accelerationIncludingGravity
 
-      if (lastZ === null) {
-        lastZ = currentZ
-        return
+      if (!acc) return
+
+      const x = acc.x || 0
+      const y = acc.y || 0
+      const z = acc.z || 0
+
+      // Combined motion intensity
+      const intensity =
+        Math.sqrt(
+          x * x +
+            y * y +
+            z * z
+        )
+
+      // Detect sudden vertical drop
+      let verticalDrop = 0
+
+      if (lastZ !== null) {
+        verticalDrop =
+          z - lastZ
       }
 
-      const delta = Math.abs(
-        currentZ - lastZ
-      )
+      lastZ = z
 
-      lastZ = currentZ
-
-      recentDeltas.push({
-        value: delta,
+      recentReadings.push({
+        value: intensity,
         time: Date.now(),
       })
 
       if (
-        recentDeltas.length > 20
-      )
-        recentDeltas.shift()
+        recentReadings.length > 20
+      ) {
+        recentReadings.shift()
+      }
 
       setMotionValue(
-        delta.toFixed(2)
+        intensity.toFixed(2)
       )
 
       const now = Date.now()
 
+      // Ignore weak movement
       if (
-        delta > 8 &&
-        now - lastTrigger > 1500
+        intensity > 12 &&
+        now - lastTrigger > 1800
       ) {
+        // Walking filter
         if (isWalkingPattern()) {
           setStatus(
             'Walking detected — ignored'
@@ -214,6 +226,7 @@ function Scanner() {
           return
         }
 
+        // Speedbreaker filter
         if (isSpeedbreaker()) {
           setStatus(
             'Speedbreaker detected — ignored'
@@ -222,19 +235,35 @@ function Scanner() {
           return
         }
 
-        lastTrigger = now
+        // Speedbreakers usually create upward motion
+        if (verticalDrop > 2) {
+          setStatus(
+            'Upward bump detected — ignored'
+          )
 
-        let severity
-
-        if (delta > 22) {
-          severity = 26
-        } else if (delta > 14) {
-          severity = 19
-        } else {
-          severity = 12
+          return
         }
 
-        reportPothole(severity)
+        // Potholes usually create sudden downward drop
+        if (verticalDrop < -1.5) {
+          lastTrigger = now
+
+          let severity
+
+          if (intensity > 28) {
+            severity = 32
+          } else if (
+            intensity > 18
+          ) {
+            severity = 22
+          } else {
+            severity = 14
+          }
+
+          reportPothole(
+            severity
+          )
+        }
       }
     }
 
@@ -404,7 +433,7 @@ function Scanner() {
             fontSize: '1rem',
           }}
         >
-          Motion Value:{' '}
+          Motion Intensity:{' '}
           {motionValue}
         </p>
       </div>

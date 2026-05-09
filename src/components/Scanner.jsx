@@ -1,414 +1,242 @@
-import { useEffect, useState } from 'react'
-
-import {
-  db,
-  collection,
- addDoc,
-} from '../firebase'
+import { useState, useEffect } from 'react'
+import { db, collection, addDoc } from '../firebase'
 
 function Scanner() {
-  const [isScanning, setIsScanning] =
-    useState(false)
+  const [detecting, setDetecting] = useState(false)
+  const [count, setCount] = useState(0)
+  const [status, setStatus] = useState('Press Start to begin scanning')
+  const [lastDetection, setLastDetection] = useState(null)
+  const [clicked, setClicked] = useState(false)
+  const [motionValue, setMotionValue] = useState(0)
 
-  const [potholes, setPotholes] =
-    useState(0)
+  const reportPothole = async (severity) => {
+    setCount((prev) => prev + 1)
+    setStatus('Uploading detection...')
+    setLastDetection(new Date().toLocaleTimeString())
+    setClicked(true)
+    setTimeout(() => setClicked(false), 200)
 
-  const [severity, setSeverity] =
-    useState('None')
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const report = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          severity,
+          timestamp: new Date().toISOString(),
+        }
+        await addDoc(collection(db, 'potholes'), report)
 
-  const [lastDetection, setLastDetection] =
-    useState(0)
+        let label = 'Minor'
+        if (severity > 22) label = 'Severe'
+        else if (severity > 15) label = 'Moderate'
 
-  const [demoIndex, setDemoIndex] =
-    useState(0)
-
-  const severityLevels = [
-    {
-      value: 8,
-      label: 'Minor',
-      color: '#eab308',
-    },
-
-    {
-      value: 17,
-      label: 'Moderate',
-      color: '#f59e0b',
-    },
-
-    {
-      value: 24,
-      label: 'Severe',
-      color: '#ef4444',
-    },
-  ]
+        setStatus(`${label} pothole detected`)
+      },
+      () => setStatus('Location permission denied')
+    )
+  }
 
   useEffect(() => {
-    const handleMotion = async (
-      event
-    ) => {
-      if (!isScanning) return
+    let lastTrigger = 0
+    let lastZ = null
+
+    // Store last 20 delta readings with timestamps
+    // Used for both walking detection and speedbreaker detection
+    const recentDeltas = []
+
+    // WALKING FILTER
+    // Walking creates a rhythmic pattern — regular spikes every 400–800ms (one per step)
+    // If we see 4+ spikes with consistent spacing, it's footsteps, not a pothole
+    const isWalkingPattern = () => {
+      const now = Date.now()
+      // Only look at recent spikes above noise level
+      const spikes = recentDeltas.filter(
+        (d) => now - d.time < 4000 && d.value > 4
+      )
+      if (spikes.length < 4) return false
+
+      // Calculate time gaps between spikes
+      const intervals = []
+      for (let i = 1; i < spikes.length; i++) {
+        intervals.push(spikes[i].time - spikes[i - 1].time)
+      }
+
+      const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length
+
+      // Walking rhythm is 400–900ms between steps
+      // If all intervals are close to the average, it's rhythmic = walking
+      const isRhythmic = intervals.every((i) => Math.abs(i - avg) < 220)
+      return isRhythmic && avg > 350 && avg < 900
+    }
+
+    // SPEEDBREAKER FILTER
+    // A speedbreaker causes gradual sustained motion across MULTIPLE readings
+    // A pothole causes ONE sudden isolated spike
+    // So if the last 4 readings are ALL elevated, it's a speedbreaker
+    const isSpeedbreaker = () => {
+      const last4 = recentDeltas.slice(-4)
+      if (last4.length < 4) return false
+      // All 4 recent readings elevated = gradual sustained bump = speedbreaker
+      return last4.every((d) => d.value > 5)
+    }
+
+    const handleMotion = (event) => {
+      const currentZ = event.accelerationIncludingGravity?.z || 0
+      if (lastZ === null) {
+        lastZ = currentZ
+        return
+      }
+
+      const delta = Math.abs(currentZ - lastZ)
+      lastZ = currentZ
+
+      // Keep rolling window of last 20 readings
+      recentDeltas.push({ value: delta, time: Date.now() })
+      if (recentDeltas.length > 20) recentDeltas.shift()
+
+      setMotionValue(delta.toFixed(2))
 
       const now = Date.now()
 
-      if (
-        now - lastDetection <
-        2000
-      )
-        return
+      // Only process if spike is significant and cooldown has passed
+      if (delta > 8 && now - lastTrigger > 1500) {
 
-      const acc =
-        event.accelerationIncludingGravity
-
-      if (!acc) return
-
-      const total =
-        Math.abs(acc.x || 0) +
-        Math.abs(acc.y || 0) +
-        Math.abs(acc.z || 0)
-
-      let level = null
-
-      if (total > 15) {
-        level = {
-          label: 'Severe',
-          value: total,
+        // Check walking pattern first
+        if (isWalkingPattern()) {
+          setStatus('Walking detected — ignored')
+          return
         }
-      } else if (total > 10) {
-        level = {
-          label: 'Moderate',
-          value: total,
+
+        // Check speedbreaker pattern
+        if (isSpeedbreaker()) {
+          setStatus('Speedbreaker detected — ignored')
+          return
         }
-      } else if (total > 7) {
-        level = {
-          label: 'Minor',
-          value: total,
+
+        // It's a real pothole — classify severity by delta magnitude
+        // These ranges are calibrated for realistic phone motion values
+        lastTrigger = now
+        let severity
+        if (delta > 22) {
+          severity = 26       // Severe — very sharp jolt
+        } else if (delta > 14) {
+          severity = 19       // Moderate — clear bump
+        } else {
+          severity = 12       // Minor — small dip
         }
-      }
 
-      if (level) {
-        setPotholes((prev) => prev + 1)
-
-        setSeverity(level.label)
-
-        setLastDetection(now)
-
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            await addDoc(
-              collection(
-                db,
-                'potholes'
-              ),
-              {
-                lat:
-                  position.coords
-                    .latitude,
-
-                lng:
-                  position.coords
-                    .longitude,
-
-                severity:
-                  level.value,
-
-                label:
-                  level.label,
-
-                timestamp:
-                  Date.now(),
-              }
-            )
-          }
-        )
+        reportPothole(severity)
       }
     }
 
-    window.addEventListener(
-      'devicemotion',
-      handleMotion
-    )
+    if (detecting) {
+      // iOS requires explicit permission for DeviceMotion
+      if (
+        typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function'
+      ) {
+        DeviceMotionEvent.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            window.addEventListener('devicemotion', handleMotion)
+            setStatus('Motion detection active')
+          }
+        })
+      } else {
+        window.addEventListener('devicemotion', handleMotion)
+        setStatus('Motion detection active')
+      }
+    }
 
     return () => {
-      window.removeEventListener(
-        'devicemotion',
-        handleMotion
-      )
+      window.removeEventListener('devicemotion', handleMotion)
     }
-  }, [
-    isScanning,
-    lastDetection,
-  ])
-
-  const simulateDetection =
-    async () => {
-      const current =
-        severityLevels[
-          demoIndex
-        ]
-
-      setPotholes(
-        (prev) => prev + 1
-      )
-
-      setSeverity(current.label)
-
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          await addDoc(
-            collection(
-              db,
-              'potholes'
-            ),
-            {
-              lat:
-                position.coords
-                  .latitude,
-
-              lng:
-                position.coords
-                  .longitude,
-
-              severity:
-                current.value,
-
-              label:
-                current.label,
-
-              timestamp:
-                Date.now(),
-            }
-          )
-        }
-      )
-
-      setDemoIndex(
-        (prev) =>
-          (prev + 1) % 3
-      )
-    }
-
-  const getSeverityColor = () => {
-    if (severity === 'Severe')
-      return '#ef4444'
-
-    if (
-      severity === 'Moderate'
-    )
-      return '#f59e0b'
-
-    if (severity === 'Minor')
-      return '#eab308'
-
-    return '#94a3b8'
-  }
+  }, [detecting])
 
   return (
     <div
       style={{
+        textAlign: 'center',
         padding: '2rem',
-        color: 'white',
+        maxWidth: '500px',
+        margin: '0 auto',
       }}
     >
-      <h1
-        style={{
-          fontSize: '2.5rem',
-          marginBottom: '0.5rem',
-        }}
-      >
-        Road Hazard Scanner
-      </h1>
+      <h2 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', color: 'white' }}>
+        RoadScan
+      </h2>
 
-      <p
-        style={{
-          color: '#94a3b8',
-          marginBottom: '2rem',
-        }}
-      >
-        AI-powered road anomaly
-        detection system
+      <p style={{ color: '#94a3b8', marginBottom: '2rem', fontSize: '1.1rem' }}>
+        AI Pothole Detection System
       </p>
 
       <div
         style={{
-          display: 'flex',
-          gap: '1rem',
+          background: 'rgba(255,255,255,0.08)',
+          padding: '1.5rem',
+          borderRadius: '24px',
           marginBottom: '2rem',
-          flexWrap: 'wrap',
+          border: '1px solid rgba(255,255,255,0.1)',
         }}
       >
-        <button
-          onClick={() =>
-            setIsScanning(
-              !isScanning
-            )
-          }
-          style={{
-            padding:
-              '1rem 2rem',
-
-            borderRadius: '16px',
-
-            border: 'none',
-
-            background: isScanning
-              ? '#ef4444'
-              : '#2563eb',
-
-            color: 'white',
-
-            fontWeight: 'bold',
-
-            fontSize: '1rem',
-
-            cursor: 'pointer',
-          }}
-        >
-          {isScanning
-            ? 'Stop Scanning'
-            : 'Start Scanning'}
-        </button>
-
-        <button
-          onClick={
-            simulateDetection
-          }
-          style={{
-            padding:
-              '1rem 2rem',
-
-            borderRadius: '16px',
-
-            border: 'none',
-
-            background:
-              'linear-gradient(135deg,#22c55e,#16a34a)',
-
-            color: 'white',
-
-            fontWeight: 'bold',
-
-            fontSize: '1rem',
-
-            cursor: 'pointer',
-          }}
-        >
-          Simulate Detection
-        </button>
+        <p style={{ fontSize: '1.1rem', margin: 0, color: 'white', fontWeight: '600' }}>
+          {status}
+        </p>
+        {lastDetection && (
+          <p style={{ fontSize: '0.95rem', color: '#cbd5e1', marginTop: '0.8rem' }}>
+            Last detected at {lastDetection}
+          </p>
+        )}
       </div>
 
-      <div
+      <div style={{ marginBottom: '2rem' }}>
+        <p style={{ fontSize: '4rem', fontWeight: 'bold', margin: 0, color: '#38bdf8' }}>
+          {count}
+        </p>
+        <p style={{ color: '#94a3b8', margin: 0, fontSize: '1rem' }}>
+          Potholes Detected
+        </p>
+        <p style={{ color: '#38bdf8', marginTop: '1rem', fontSize: '1rem' }}>
+          Motion Value: {motionValue}
+        </p>
+      </div>
+
+      <button
+        onClick={() => setDetecting(!detecting)}
         style={{
-          display: 'grid',
-
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(240px, 1fr))',
-
-          gap: '1.5rem',
+          padding: '1rem 2rem',
+          fontSize: '1rem',
+          backgroundColor: detecting ? '#ef4444' : '#22c55e',
+          color: 'white',
+          border: 'none',
+          borderRadius: '50px',
+          cursor: 'pointer',
+          width: '100%',
+          marginBottom: '1rem',
+          fontWeight: '700',
         }}
       >
-        <div
-          style={{
-            background:
-              'rgba(255,255,255,0.05)',
+        {detecting ? 'Stop Scanning' : 'Start Scanning'}
+      </button>
 
-            padding: '2rem',
-
-            borderRadius: '24px',
-
-            border:
-              '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <h2
-            style={{
-              color: '#94a3b8',
-              marginBottom: '1rem',
-            }}
-          >
-            Total Detections
-          </h2>
-
-          <h1
-            style={{
-              fontSize: '3rem',
-              margin: 0,
-            }}
-          >
-            {potholes}
-          </h1>
-        </div>
-
-        <div
-          style={{
-            background:
-              'rgba(255,255,255,0.05)',
-
-            padding: '2rem',
-
-            borderRadius: '24px',
-
-            border:
-              '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <h2
-            style={{
-              color: '#94a3b8',
-              marginBottom: '1rem',
-            }}
-          >
-            Latest Severity
-          </h2>
-
-          <h1
-            style={{
-              fontSize: '2.5rem',
-              margin: 0,
-              color:
-                getSeverityColor(),
-            }}
-          >
-            {severity}
-          </h1>
-        </div>
-
-        <div
-          style={{
-            background:
-              'rgba(255,255,255,0.05)',
-
-            padding: '2rem',
-
-            borderRadius: '24px',
-
-            border:
-              '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <h2
-            style={{
-              color: '#94a3b8',
-              marginBottom: '1rem',
-            }}
-          >
-            Scanner Status
-          </h2>
-
-          <h1
-            style={{
-              fontSize: '2rem',
-              margin: 0,
-              color: isScanning
-                ? '#22c55e'
-                : '#ef4444',
-            }}
-          >
-            {isScanning
-              ? 'ACTIVE'
-              : 'INACTIVE'}
-          </h1>
-        </div>
-      </div>
+      <button
+        onClick={() => reportPothole(18)}
+        style={{
+          padding: '1rem 2rem',
+          fontSize: '1rem',
+          backgroundColor: clicked ? '#1d4ed8' : '#2563eb',
+          transform: clicked ? 'scale(0.96)' : 'scale(1)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '50px',
+          cursor: 'pointer',
+          width: '100%',
+          transition: 'all 0.15s ease',
+          boxShadow: '0 10px 30px rgba(37,99,235,0.35)',
+          fontWeight: '700',
+        }}
+      >
+        Simulate Detection
+      </button>
     </div>
   )
 }

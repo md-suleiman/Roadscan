@@ -4,6 +4,10 @@ import {
   db,
   collection,
   addDoc,
+  getDocs,
+  query,
+  updateDoc,
+  doc,
 } from '../firebase'
 
 function Scanner() {
@@ -49,28 +53,84 @@ function Scanner() {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const report = {
-          lat:
-            position.coords
-              .latitude,
+        const lat =
+          position.coords.latitude
 
-          lng:
-            position.coords
-              .longitude,
+        const lng =
+          position.coords.longitude
 
-          severity,
-
-          timestamp:
-            new Date().toISOString(),
-        }
-
-        await addDoc(
+        const potholesRef =
           collection(
             db,
             'potholes'
-          ),
-          report
-        )
+          )
+
+        const snapshot =
+          await getDocs(
+            query(potholesRef)
+          )
+
+        let merged = false
+
+        for (const pothole of snapshot.docs) {
+          const data =
+            pothole.data()
+
+          const distance =
+            getDistance(
+              lat,
+              lng,
+              data.lat,
+              data.lng
+            )
+
+          // Merge if within 15 meters
+          if (distance < 15) {
+            await updateDoc(
+              doc(
+                db,
+                'potholes',
+                pothole.id
+              ),
+              {
+                reports:
+                  (data.reports ||
+                    1) + 1,
+
+                severity:
+                  Math.max(
+                    severity,
+                    data.severity ||
+                      0
+                  ),
+
+                timestamp:
+                  new Date().toISOString(),
+              }
+            )
+
+            merged = true
+
+            break
+          }
+        }
+
+        if (!merged) {
+          await addDoc(
+            potholesRef,
+            {
+              lat,
+              lng,
+
+              severity,
+
+              reports: 1,
+
+              timestamp:
+                new Date().toISOString(),
+            }
+          )
+        }
 
         let label = 'Minor'
 
@@ -80,7 +140,9 @@ function Scanner() {
           label = 'Moderate'
 
         setStatus(
-          `${label} pothole detected`
+          merged
+            ? `${label} pothole merged`
+            : `${label} pothole detected`
         )
       },
 
@@ -89,6 +151,48 @@ function Scanner() {
           'Location permission denied'
         )
     )
+  }
+
+  const getDistance = (
+    lat1,
+    lon1,
+    lat2,
+    lon2
+  ) => {
+    const R = 6371e3
+
+    const φ1 =
+      (lat1 * Math.PI) / 180
+
+    const φ2 =
+      (lat2 * Math.PI) / 180
+
+    const Δφ =
+      ((lat2 - lat1) *
+        Math.PI) /
+      180
+
+    const Δλ =
+      ((lon2 - lon1) *
+        Math.PI) /
+      180
+
+    const a =
+      Math.sin(Δφ / 2) *
+        Math.sin(Δφ / 2) +
+      Math.cos(φ1) *
+        Math.cos(φ2) *
+        Math.sin(Δλ / 2) *
+        Math.sin(Δλ / 2)
+
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      )
+
+    return R * c
   }
 
   useEffect(() => {
@@ -444,15 +548,12 @@ function Scanner() {
           let randomSeverity
 
           if (random < 0.2) {
-            // 20%
             randomSeverity = 14
           } else if (
             random < 0.5
           ) {
-            // 30%
             randomSeverity = 20
           } else {
-            // 50%
             randomSeverity = 32
           }
 

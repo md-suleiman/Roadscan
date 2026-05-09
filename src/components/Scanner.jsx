@@ -83,9 +83,9 @@ function Scanner() {
 
         let label = 'Minor'
 
-        if (severity > 7)
+        if (severity > 28)
           label = 'Severe'
-        else if (severity > 4)
+        else if (severity > 18)
           label = 'Moderate'
 
         setStatus(
@@ -112,10 +112,10 @@ function Scanner() {
         recentReadings.filter(
           (d) =>
             now - d.time < 4000 &&
-            d.value > 1.5
+            d.value > 10
         )
 
-      if (spikes.length < 5)
+      if (spikes.length < 4)
         return false
 
       const intervals = []
@@ -141,39 +141,33 @@ function Scanner() {
         intervals.every(
           (i) =>
             Math.abs(i - avg) <
-            180
+            220
         )
 
       return (
         rhythmic &&
-        avg > 300 &&
+        avg > 350 &&
         avg < 900
       )
     }
 
     const isSpeedbreaker = () => {
-      const last5 =
-        recentReadings.slice(-5)
+      const last4 =
+        recentReadings.slice(-4)
 
-      if (last5.length < 5)
+      if (last4.length < 4)
         return false
 
-      // Speedbreakers create sustained movement
-      const avg =
-        last5.reduce(
-          (sum, r) =>
-            sum + r.value,
-          0
-        ) / last5.length
-
-      return avg > 2 && avg < 5
+      return last4.every(
+        (d) => d.value > 14
+      )
     }
 
     const handleMotion = (
       event
     ) => {
       const acc =
-        event.acceleration
+        event.accelerationIncludingGravity
 
       if (!acc) return
 
@@ -181,7 +175,7 @@ function Scanner() {
       const y = acc.y || 0
       const z = acc.z || 0
 
-      // True motion intensity WITHOUT gravity
+      // Combined motion intensity
       const intensity =
         Math.sqrt(
           x * x +
@@ -206,12 +200,10 @@ function Scanner() {
 
       const now = Date.now()
 
-      // Ignore tiny noise
       if (
-        intensity > 2 &&
-        now - lastTrigger > 1500
+        intensity > 12 &&
+        now - lastTrigger > 1800
       ) {
-        // Walking pattern filter
         if (isWalkingPattern()) {
           setStatus(
             'Walking detected — ignored'
@@ -220,7 +212,6 @@ function Scanner() {
           return
         }
 
-        // Speedbreaker filter
         if (isSpeedbreaker()) {
           setStatus(
             'Speedbreaker detected — ignored'
@@ -233,14 +224,14 @@ function Scanner() {
 
         let severity
 
-        if (intensity > 7) {
-          severity = 8
+        if (intensity > 28) {
+          severity = 32
         } else if (
-          intensity > 4
+          intensity > 18
         ) {
-          severity = 5
+          severity = 22
         } else {
-          severity = 3
+          severity = 14
         }
 
         reportPothole(severity)

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import {
   MapContainer,
   TileLayer,
-  Popup,
+ Popup,
   Circle,
   Marker,
 } from 'react-leaflet'
@@ -71,6 +71,8 @@ function Map() {
 
       {
         enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 800,
       }
     )
 
@@ -127,8 +129,8 @@ function Map() {
 
         {
           enableHighAccuracy: true,
-          maximumAge: 500,
-          timeout: 2000,
+          maximumAge: 10000,
+          timeout: 800,
         }
       )
 
@@ -147,7 +149,8 @@ function Map() {
 
     return () => {
       navigator.geolocation.clearWatch(
-        watchId)
+        watchId
+      )
 
       window.removeEventListener(
         'deviceorientation',

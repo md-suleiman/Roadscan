@@ -5,8 +5,11 @@ import {
   TileLayer,
   Popup,
   Circle,
+  Marker,
   useMap,
 } from 'react-leaflet'
+
+import L from 'leaflet'
 
 import 'leaflet/dist/leaflet.css'
 
@@ -15,6 +18,25 @@ import {
   collection,
   onSnapshot,
 } from '../firebase'
+
+const userArrowIcon = L.divIcon({
+  className: '',
+
+  html: `
+    <div style="
+      width: 0;
+      height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-bottom: 24px solid #3b82f6;
+      transform: rotate(0deg);
+      filter: drop-shadow(0 0 6px rgba(59,130,246,0.7));
+    "></div>
+  `,
+
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+})
 
 function RecenterMap({
   userLocation,
@@ -254,35 +276,17 @@ function Map() {
               }
             />
 
-            <Circle
-              center={[
+            <Marker
+              position={[
                 userLocation.lat,
                 userLocation.lng,
               ]}
-              radius={8}
-              pathOptions={{
-                color: '#2563eb',
-                fillColor: '#3b82f6',
-                fillOpacity: 1,
-              }}
-            />
-
-            <Circle
-              center={[
-                userLocation.lat,
-                userLocation.lng,
-              ]}
-              radius={20}
-              pathOptions={{
-                color: '#60a5fa',
-                fillColor: '#60a5fa',
-                fillOpacity: 0.25,
-              }}
+              icon={userArrowIcon}
             >
               <Popup>
                 Your Current Location
               </Popup>
-            </Circle>
+            </Marker>
           </>
         )}
 
@@ -299,12 +303,12 @@ function Map() {
                 pothole.lat,
                 pothole.lng,
               ]}
-              radius={12}
+              radius={6}
               pathOptions={{
                 color: style.color,
                 fillColor:
                   style.fillColor,
-                fillOpacity: 0.9,
+                fillOpacity: 1,
               }}
             >
               <Popup>

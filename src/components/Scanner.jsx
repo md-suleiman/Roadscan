@@ -1,11 +1,12 @@
-scanner
-
 import { useState, useEffect } from 'react'
 
 import {
   db,
   collection,
   addDoc,
+  getDocs,
+  updateDoc,
+  doc,
 } from '../firebase'
 
 function Scanner() {
@@ -29,8 +30,6 @@ function Scanner() {
   const [motionValue, setMotionValue] =
     useState(0)
 
-  // Weighted randomization
-  // Moderate appears slightly more often
   const demoSeverities = [
     12,
     12,
@@ -39,6 +38,43 @@ function Scanner() {
     18,
     26,
   ]
+
+  const getDistance = (
+    lat1,
+    lon1,
+    lat2,
+    lon2
+  ) => {
+    const R = 6371e3
+
+    const toRad = (deg) =>
+      (deg * Math.PI) / 180
+
+    const dLat = toRad(
+      lat2 - lat1
+    )
+
+    const dLon = toRad(
+      lon2 - lon1
+    )
+
+    const a =
+      Math.sin(dLat / 2) *
+        Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2)
+
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      )
+
+    return R * c
+  }
 
   const reportPothole = async (
     severity
@@ -62,28 +98,83 @@ function Scanner() {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const report = {
-          lat:
-            position.coords
-              .latitude,
+        const lat =
+          position.coords.latitude
 
-          lng:
-            position.coords
-              .longitude,
+        const lng =
+          position.coords.longitude
 
-          severity,
+        const potholesSnapshot =
+          await getDocs(
+            collection(
+              db,
+              'potholes'
+            )
+          )
 
-          timestamp:
-            new Date().toISOString(),
+        let merged = false
+
+        for (const pothole of potholesSnapshot.docs) {
+          const data =
+            pothole.data()
+
+          const distance =
+            getDistance(
+              lat,
+              lng,
+              data.lat,
+              data.lng
+            )
+
+          if (distance < 15) {
+            await updateDoc(
+              doc(
+                db,
+                'potholes',
+                pothole.id
+              ),
+              {
+                severity:
+                  Math.max(
+                    severity,
+                    data.severity ||
+                      0
+                  ),
+
+                reportCount:
+                  (data.reportCount ||
+                    1) + 1,
+
+                lastReported:
+                  new Date().toISOString(),
+              }
+            )
+
+            merged = true
+
+            break
+          }
         }
 
-        await addDoc(
-          collection(
-            db,
-            'potholes'
-          ),
-          report
-        )
+        if (!merged) {
+          await addDoc(
+            collection(
+              db,
+              'potholes'
+            ),
+            {
+              lat,
+              lng,
+
+              severity,
+
+              reportCount: 1,
+
+              timestamp:
+                new Date().toISOString(),
+            }
+          )
+        }
 
         let label = 'Minor'
 
@@ -93,7 +184,9 @@ function Scanner() {
           label = 'Moderate'
 
         setStatus(
-          `${label} pothole detected`
+          merged
+            ? `${label} pothole merged`
+            : `${label} pothole detected`
         )
       },
 
@@ -103,6 +196,39 @@ function Scanner() {
         )
     )
   }
+
+  useEffect(() => {
+    let wakeLock = null
+
+    const enableWakeLock =
+      async () => {
+        try {
+          if (
+            'wakeLock' in navigator
+          ) {
+            wakeLock =
+              await navigator.wakeLock.request(
+                'screen'
+              )
+          }
+        } catch (err) {
+          console.log(err)
+        }
+      }
+
+    if (detecting) {
+      enableWakeLock()
+    }
+
+    return () => {
+      if (
+        wakeLock &&
+        wakeLock.release
+      ) {
+        wakeLock.release()
+      }
+    }
+  }, [detecting])
 
   useEffect(() => {
     let lastTrigger = 0
@@ -195,8 +321,9 @@ function Scanner() {
 
       if (
         recentDeltas.length > 20
-      )
+      ) {
         recentDeltas.shift()
+      }
 
       setMotionValue(
         delta.toFixed(2)
@@ -288,20 +415,15 @@ function Scanner() {
     <div
       style={{
         textAlign: 'center',
-
         padding: '2rem',
-
         maxWidth: '500px',
-
         margin: '0 auto',
       }}
     >
       <h2
         style={{
           fontSize: '2.5rem',
-
           marginBottom: '0.5rem',
-
           color: 'white',
         }}
       >
@@ -311,27 +433,20 @@ function Scanner() {
       <p
         style={{
           color: '#94a3b8',
-
           marginBottom: '2rem',
-
           fontSize: '1.1rem',
         }}
       >
-        AI Pothole Detection
-        System
+        AI Pothole Detection System
       </p>
 
       <div
         style={{
           background:
             'rgba(255,255,255,0.08)',
-
           padding: '1.5rem',
-
           borderRadius: '24px',
-
           marginBottom: '2rem',
-
           border:
             '1px solid rgba(255,255,255,0.1)',
         }}
@@ -339,11 +454,8 @@ function Scanner() {
         <p
           style={{
             fontSize: '1.1rem',
-
             margin: 0,
-
             color: 'white',
-
             fontWeight: '600',
           }}
         >
@@ -354,9 +466,7 @@ function Scanner() {
           <p
             style={{
               fontSize: '0.95rem',
-
               color: '#cbd5e1',
-
               marginTop: '0.8rem',
             }}
           >
@@ -374,11 +484,8 @@ function Scanner() {
         <p
           style={{
             fontSize: '4rem',
-
             fontWeight: 'bold',
-
             margin: 0,
-
             color: '#38bdf8',
           }}
         >
@@ -388,9 +495,7 @@ function Scanner() {
         <p
           style={{
             color: '#94a3b8',
-
             margin: 0,
-
             fontSize: '1rem',
           }}
         >
@@ -400,9 +505,7 @@ function Scanner() {
         <p
           style={{
             color: '#38bdf8',
-
             marginTop: '1rem',
-
             fontSize: '1rem',
           }}
         >
@@ -420,26 +523,17 @@ function Scanner() {
         style={{
           padding:
             '1rem 2rem',
-
           fontSize: '1rem',
-
           backgroundColor:
             detecting
               ? '#ef4444'
               : '#22c55e',
-
           color: 'white',
-
           border: 'none',
-
           borderRadius: '50px',
-
           cursor: 'pointer',
-
           width: '100%',
-
           marginBottom: '1rem',
-
           fontWeight: '700',
         }}
       >
@@ -465,34 +559,23 @@ function Scanner() {
         style={{
           padding:
             '1rem 2rem',
-
           fontSize: '1rem',
-
           backgroundColor:
             clicked
               ? '#1d4ed8'
               : '#2563eb',
-
           transform: clicked
             ? 'scale(0.96)'
             : 'scale(1)',
-
           color: 'white',
-
           border: 'none',
-
           borderRadius: '50px',
-
           cursor: 'pointer',
-
           width: '100%',
-
           transition:
             'all 0.15s ease',
-
           boxShadow:
             '0 10px 30px rgba(37,99,235,0.35)',
-
           fontWeight: '700',
         }}
       >

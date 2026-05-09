@@ -83,9 +83,9 @@ function Scanner() {
 
         let label = 'Minor'
 
-        if (severity > 28)
+        if (severity > 7)
           label = 'Severe'
-        else if (severity > 18)
+        else if (severity > 4)
           label = 'Moderate'
 
         setStatus(
@@ -103,8 +103,6 @@ function Scanner() {
   useEffect(() => {
     let lastTrigger = 0
 
-    let lastZ = null
-
     const recentReadings = []
 
     const isWalkingPattern = () => {
@@ -114,10 +112,10 @@ function Scanner() {
         recentReadings.filter(
           (d) =>
             now - d.time < 4000 &&
-            d.value > 10
+            d.value > 1.5
         )
 
-      if (spikes.length < 4)
+      if (spikes.length < 5)
         return false
 
       const intervals = []
@@ -143,33 +141,39 @@ function Scanner() {
         intervals.every(
           (i) =>
             Math.abs(i - avg) <
-            220
+            180
         )
 
       return (
         rhythmic &&
-        avg > 350 &&
+        avg > 300 &&
         avg < 900
       )
     }
 
     const isSpeedbreaker = () => {
-      const last4 =
-        recentReadings.slice(-4)
+      const last5 =
+        recentReadings.slice(-5)
 
-      if (last4.length < 4)
+      if (last5.length < 5)
         return false
 
-      return last4.every(
-        (d) => d.value > 14
-      )
+      // Speedbreakers create sustained movement
+      const avg =
+        last5.reduce(
+          (sum, r) =>
+            sum + r.value,
+          0
+        ) / last5.length
+
+      return avg > 2 && avg < 5
     }
 
     const handleMotion = (
       event
     ) => {
       const acc =
-        event.accelerationIncludingGravity
+        event.acceleration
 
       if (!acc) return
 
@@ -177,23 +181,13 @@ function Scanner() {
       const y = acc.y || 0
       const z = acc.z || 0
 
-      // Combined motion intensity
+      // True motion intensity WITHOUT gravity
       const intensity =
         Math.sqrt(
           x * x +
             y * y +
             z * z
         )
-
-      // Detect sudden vertical drop
-      let verticalDrop = 0
-
-      if (lastZ !== null) {
-        verticalDrop =
-          z - lastZ
-      }
-
-      lastZ = z
 
       recentReadings.push({
         value: intensity,
@@ -212,12 +206,12 @@ function Scanner() {
 
       const now = Date.now()
 
-      // Ignore weak movement
+      // Ignore tiny noise
       if (
-        intensity > 12 &&
-        now - lastTrigger > 1800
+        intensity > 2 &&
+        now - lastTrigger > 1500
       ) {
-        // Walking filter
+        // Walking pattern filter
         if (isWalkingPattern()) {
           setStatus(
             'Walking detected — ignored'
@@ -235,35 +229,21 @@ function Scanner() {
           return
         }
 
-        // Speedbreakers usually create upward motion
-        if (verticalDrop > 2) {
-          setStatus(
-            'Upward bump detected — ignored'
-          )
+        lastTrigger = now
 
-          return
+        let severity
+
+        if (intensity > 7) {
+          severity = 8
+        } else if (
+          intensity > 4
+        ) {
+          severity = 5
+        } else {
+          severity = 3
         }
 
-        // Potholes usually create sudden downward drop
-        if (verticalDrop < -1.5) {
-          lastTrigger = now
-
-          let severity
-
-          if (intensity > 28) {
-            severity = 32
-          } else if (
-            intensity > 18
-          ) {
-            severity = 22
-          } else {
-            severity = 14
-          }
-
-          reportPothole(
-            severity
-          )
-        }
+        reportPothole(severity)
       }
     }
 

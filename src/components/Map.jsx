@@ -1,12 +1,10 @@
-MAP
-
 import { useEffect, useState } from 'react'
 
 import {
   MapContainer,
   TileLayer,
- Popup,
-  Circle,
+  Popup,
+  CircleMarker,
   Marker,
 } from 'react-leaflet'
 
@@ -19,6 +17,81 @@ import {
   collection,
   onSnapshot,
 } from '../firebase'
+
+const getDistance = (
+  lat1,
+  lon1,
+  lat2,
+  lon2
+) => {
+  const R = 6371e3
+
+  const toRad = (deg) =>
+    (deg * Math.PI) / 180
+
+  const dLat = toRad(
+    lat2 - lat1
+  )
+
+  const dLon = toRad(
+    lon2 - lon1
+  )
+
+  const a =
+    Math.sin(dLat / 2) *
+      Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2)
+
+  const c =
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    )
+
+  return R * c
+}
+
+const mergeNearbyPotholes = (
+  potholes
+) => {
+  const merged = []
+
+  potholes.forEach((pothole) => {
+    const existing = merged.find(
+      (m) =>
+        getDistance(
+          pothole.lat,
+          pothole.lng,
+          m.lat,
+          m.lng
+        ) < 15
+    )
+
+    if (existing) {
+      existing.reportCount +=
+        pothole.reportCount || 1
+
+      existing.severity =
+        Math.max(
+          existing.severity,
+          pothole.severity
+        )
+    } else {
+      merged.push({
+        ...pothole,
+
+        reportCount:
+          pothole.reportCount || 1,
+      })
+    }
+  })
+
+  return merged
+}
 
 function Map() {
   const [potholes, setPotholes] =
@@ -40,11 +113,15 @@ function Map() {
     const unsubscribe = onSnapshot(
       collection(db, 'potholes'),
       (snapshot) => {
-        setPotholes(
-          snapshot.docs.map((doc) => ({
+        const data = snapshot.docs.map(
+          (doc) => ({
             id: doc.id,
             ...doc.data(),
-          }))
+          })
+        )
+
+        setPotholes(
+          mergeNearbyPotholes(data)
         )
       }
     )
@@ -160,48 +237,6 @@ function Map() {
       )
     }
   }, [potholes])
-
-  const getDistance = (
-    lat1,
-    lon1,
-    lat2,
-    lon2
-  ) => {
-    const R = 6371e3
-
-    const φ1 =
-      (lat1 * Math.PI) / 180
-
-    const φ2 =
-      (lat2 * Math.PI) / 180
-
-    const Δφ =
-      ((lat2 - lat1) *
-        Math.PI) /
-      180
-
-    const Δλ =
-      ((lon2 - lon1) *
-        Math.PI) /
-      180
-
-    const a =
-      Math.sin(Δφ / 2) *
-        Math.sin(Δφ / 2) +
-      Math.cos(φ1) *
-        Math.cos(φ2) *
-        Math.sin(Δλ / 2) *
-        Math.sin(Δλ / 2)
-
-    const c =
-      2 *
-      Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1 - a)
-      )
-
-    return R * c
-  }
 
   const getCircleStyle = (
     severity
@@ -347,13 +382,13 @@ function Map() {
             )
 
           return (
-            <Circle
+            <CircleMarker
               key={pothole.id}
               center={[
                 pothole.lat,
                 pothole.lng,
               ]}
-              radius={4}
+              radius={8}
               pathOptions={{
                 color: style.color,
                 fillColor:
@@ -371,9 +406,15 @@ function Map() {
                     Severity:{' '}
                     {pothole.severity}
                   </p>
+
+                  <p>
+                    Reports:{' '}
+                    {pothole.reportCount ||
+                      1}
+                  </p>
                 </div>
               </Popup>
-            </Circle>
+            </CircleMarker>
           )
         })}
       </MapContainer>

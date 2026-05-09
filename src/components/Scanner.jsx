@@ -84,7 +84,6 @@ function Scanner() {
               data.lng
             )
 
-          // Merge if within 15 meters
           if (distance < 15) {
             await updateDoc(
               doc(
@@ -207,7 +206,7 @@ function Scanner() {
         recentReadings.filter(
           (d) =>
             now - d.time < 4000 &&
-            d.value > 10
+            d.value > 2
         )
 
       if (spikes.length < 4)
@@ -254,7 +253,7 @@ function Scanner() {
         return false
 
       return last4.every(
-        (d) => d.value > 14
+        (d) => d.value > 5
       )
     }
 
@@ -277,8 +276,17 @@ function Scanner() {
             z * z
         )
 
+      // Convert resting 9.8 → 0
+      const calibratedIntensity =
+        Math.max(
+          0,
+          intensity - 9.8
+        )
+
       recentReadings.push({
-        value: intensity,
+        value:
+          calibratedIntensity,
+
         time: Date.now(),
       })
 
@@ -289,13 +297,16 @@ function Scanner() {
       }
 
       setMotionValue(
-        intensity.toFixed(2)
+        calibratedIntensity.toFixed(
+          2
+        )
       )
 
       const now = Date.now()
 
       if (
-        intensity > 12 &&
+        calibratedIntensity >
+          3 &&
         now - lastTrigger > 1800
       ) {
         if (isWalkingPattern()) {
@@ -318,10 +329,14 @@ function Scanner() {
 
         let severity
 
-        if (intensity > 28) {
+        if (
+          calibratedIntensity >
+          18
+        ) {
           severity = 32
         } else if (
-          intensity > 18
+          calibratedIntensity >
+          9
         ) {
           severity = 20
         } else {

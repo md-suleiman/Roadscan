@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import Scanner from './components/Scanner'
 import Map from './components/Map'
-import Reports from './components/Reports'
+import Report from './components/Report'
 
 function App() {
   const [tab, setTab] =
@@ -13,41 +13,54 @@ function App() {
       style={{
         minHeight: '100vh',
         background:
-          'linear-gradient(180deg,#0f172a,#020617)',
+          'linear-gradient(to bottom, #020617, #0f172a)',
+
+        padding: '1rem',
       }}
     >
       <div
         style={{
           display: 'flex',
-          justifyContent:
-            'center',
           gap: '1rem',
-          padding: '1rem',
+          marginBottom: '2rem',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
         }}
       >
-        <button
-          onClick={() =>
-            setTab('scanner')
-          }
-        >
-          Scanner
-        </button>
+        {[
+          'scanner',
+          'map',
+          'report',
+        ].map((item) => (
+          <button
+            key={item}
+            onClick={() => setTab(item)}
+            style={{
+              padding:
+                '0.9rem 1.5rem',
 
-        <button
-          onClick={() =>
-            setTab('map')
-          }
-        >
-          Map
-        </button>
+              border: 'none',
 
-        <button
-          onClick={() =>
-            setTab('reports')
-          }
-        >
-          Reports
-        </button>
+              borderRadius: '999px',
+
+              cursor: 'pointer',
+
+              background:
+                tab === item
+                  ? '#2563eb'
+                  : '#1e293b',
+
+              color: 'white',
+
+              fontWeight: '700',
+
+              textTransform:
+                'capitalize',
+            }}
+          >
+            {item}
+          </button>
+        ))}
       </div>
 
       {tab === 'scanner' && (
@@ -56,8 +69,8 @@ function App() {
 
       {tab === 'map' && <Map />}
 
-      {tab === 'reports' && (
-        <Reports />
+      {tab === 'report' && (
+        <Report />
       )}
     </div>
   )

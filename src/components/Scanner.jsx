@@ -126,6 +126,7 @@ function Scanner() {
               data.lng
             )
 
+          // Merge if within 15 meters
           if (distance < 15) {
             await updateDoc(
               doc(
@@ -461,6 +462,19 @@ function Scanner() {
         >
           {status}
         </p>
+
+        {detecting && (
+          <p
+            style={{
+              color: '#22c55e',
+              marginTop: '0.8rem',
+              fontSize: '0.95rem',
+              fontWeight: '600',
+            }}
+          >
+            Background Monitoring Active
+          </p>
+        )}
 
         {lastDetection && (
           <p

@@ -6,7 +6,6 @@ import {
   Popup,
   Circle,
   Marker,
-  useMap,
 } from 'react-leaflet'
 
 import L from 'leaflet'
@@ -19,32 +18,15 @@ import {
   onSnapshot,
 } from '../firebase'
 
-function RecenterMap({
-  userLocation,
-}) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (userLocation) {
-      map.setView(
-        [
-          userLocation.lat,
-          userLocation.lng,
-        ],
-        18
-      )
-    }
-  }, [userLocation])
-
-  return null
-}
-
 function Map() {
   const [potholes, setPotholes] =
     useState([])
 
   const [userLocation, setUserLocation] =
-    useState(null)
+    useState({
+      lat: 12.9716,
+      lng: 77.5946,
+    })
 
   const [warning, setWarning] =
     useState(null)
@@ -78,6 +60,14 @@ function Map() {
           lng:
             position.coords.longitude,
         })
+      },
+
+      (error) => {
+        console.log(error)
+      },
+
+      {
+        enableHighAccuracy: true,
       }
     )
 
@@ -134,8 +124,8 @@ function Map() {
 
         {
           enableHighAccuracy: true,
-          maximumAge: 1000,
-          timeout: 2500,
+          maximumAge: 500,
+          timeout: 2000,
         }
       )
 
@@ -236,32 +226,23 @@ function Map() {
       <div style="
         width: 34px;
         height: 34px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         transform: rotate(${heading}deg);
+        display:flex;
+        align-items:center;
+        justify-content:center;
       ">
-        <div style="
-          width: 0;
-          height: 0;
-          border-left: 10px solid transparent;
-          border-right: 10px solid transparent;
-          border-bottom: 22px solid #3b82f6;
-          position: absolute;
-          top: 2px;
-          filter: drop-shadow(0 0 4px rgba(59,130,246,0.8));
-        "></div>
-
-        <div style="
-          width: 14px;
-          height: 14px;
-          background: #2563eb;
-          border: 3px solid white;
-          border-radius: 50%;
-          position: absolute;
-          bottom: 3px;
-          box-shadow: 0 0 8px rgba(37,99,235,0.8);
-        "></div>
+        <svg
+          width="34"
+          height="34"
+          viewBox="0 0 24 24"
+          fill="#3b82f6"
+          xmlns="http://www.w3.org/2000/svg"
+          style="
+            filter: drop-shadow(0 0 6px rgba(59,130,246,0.8));
+          "
+        >
+          <path d="M12 2L3 21L12 16L21 21L12 2Z"/>
+        </svg>
       </div>
     `,
 
@@ -307,8 +288,11 @@ function Map() {
       )}
 
       <MapContainer
-        center={[12.9716, 77.5946]}
-        zoom={13}
+        center={[
+          userLocation.lat,
+          userLocation.lng,
+        ]}
+        zoom={18}
         style={{
           height: '80vh',
           width: '100%',
@@ -320,27 +304,17 @@ function Map() {
           url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
         />
 
-        {userLocation && (
-          <>
-            <RecenterMap
-              userLocation={
-                userLocation
-              }
-            />
-
-            <Marker
-              position={[
-                userLocation.lat,
-                userLocation.lng,
-              ]}
-              icon={userArrowIcon}
-            >
-              <Popup>
-                Your Current Location
-              </Popup>
-            </Marker>
-          </>
-        )}
+        <Marker
+          position={[
+            userLocation.lat,
+            userLocation.lng,
+          ]}
+          icon={userArrowIcon}
+        >
+          <Popup>
+            Your Current Location
+          </Popup>
+        </Marker>
 
         {potholes.map((pothole) => {
           const style =

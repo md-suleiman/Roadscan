@@ -4,6 +4,10 @@ import {
   db,
   collection,
   addDoc,
+  getDocs,
+  query,
+  updateDoc,
+  doc,
 } from '../firebase'
 
 function Scanner() {
@@ -49,28 +53,84 @@ function Scanner() {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const report = {
-          lat:
-            position.coords
-              .latitude,
+        const lat =
+          position.coords.latitude
 
-          lng:
-            position.coords
-              .longitude,
+        const lng =
+          position.coords.longitude
 
-          severity,
-
-          timestamp:
-            new Date().toISOString(),
-        }
-
-        await addDoc(
+        const potholesRef =
           collection(
             db,
             'potholes'
-          ),
-          report
-        )
+          )
+
+        const snapshot =
+          await getDocs(
+            query(potholesRef)
+          )
+
+        let merged = false
+
+        for (const pothole of snapshot.docs) {
+          const data =
+            pothole.data()
+
+          const distance =
+            getDistance(
+              lat,
+              lng,
+              data.lat,
+              data.lng
+            )
+
+          // Merge nearby potholes
+          if (distance < 15) {
+            await updateDoc(
+              doc(
+                db,
+                'potholes',
+                pothole.id
+              ),
+              {
+                reports:
+                  (data.reports ||
+                    1) + 1,
+
+                severity:
+                  Math.max(
+                    severity,
+                    data.severity ||
+                      0
+                  ),
+
+                timestamp:
+                  new Date().toISOString(),
+              }
+            )
+
+            merged = true
+
+            break
+          }
+        }
+
+        if (!merged) {
+          await addDoc(
+            potholesRef,
+            {
+              lat,
+              lng,
+
+              severity,
+
+              reports: 1,
+
+              timestamp:
+                new Date().toISOString(),
+            }
+          )
+        }
 
         let label = 'Minor'
 
@@ -80,7 +140,9 @@ function Scanner() {
           label = 'Moderate'
 
         setStatus(
-          `${label} pothole detected`
+          merged
+            ? `${label} pothole merged`
+            : `${label} pothole detected`
         )
       },
 
@@ -89,6 +151,48 @@ function Scanner() {
           'Location permission denied'
         )
     )
+  }
+
+  const getDistance = (
+    lat1,
+    lon1,
+    lat2,
+    lon2
+  ) => {
+    const R = 6371e3
+
+    const φ1 =
+      (lat1 * Math.PI) / 180
+
+    const φ2 =
+      (lat2 * Math.PI) / 180
+
+    const Δφ =
+      ((lat2 - lat1) *
+        Math.PI) /
+      180
+
+    const Δλ =
+      ((lon2 - lon1) *
+        Math.PI) /
+      180
+
+    const a =
+      Math.sin(Δφ / 2) *
+        Math.sin(Δφ / 2) +
+      Math.cos(φ1) *
+        Math.cos(φ2) *
+        Math.sin(Δλ / 2) *
+        Math.sin(Δλ / 2)
+
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      )
+
+    return R * c
   }
 
   useEffect(() => {
@@ -103,7 +207,7 @@ function Scanner() {
         recentReadings.filter(
           (d) =>
             now - d.time < 4000 &&
-            d.value > 10
+            d.value > 2
         )
 
       if (spikes.length < 4)
@@ -150,7 +254,7 @@ function Scanner() {
         return false
 
       return last4.every(
-        (d) => d.value > 14
+        (d) => d.value > 5
       )
     }
 
@@ -173,8 +277,25 @@ function Scanner() {
             z * z
         )
 
+      // Convert 9.8 gravity baseline to 0
+      let calibratedIntensity =
+        Math.max(
+          0,
+          intensity - 9.8
+        )
+
+      // Deadzone filtering
+      // Removes tiny sensor noise
+      if (
+        calibratedIntensity < 1.2
+      ) {
+        calibratedIntensity = 0
+      }
+
       recentReadings.push({
-        value: intensity,
+        value:
+          calibratedIntensity,
+
         time: Date.now(),
       })
 
@@ -185,13 +306,16 @@ function Scanner() {
       }
 
       setMotionValue(
-        intensity.toFixed(2)
+        calibratedIntensity.toFixed(
+          2
+        )
       )
 
       const now = Date.now()
 
       if (
-        intensity > 12 &&
+        calibratedIntensity >
+          3 &&
         now - lastTrigger > 1800
       ) {
         if (isWalkingPattern()) {
@@ -214,14 +338,25 @@ function Scanner() {
 
         let severity
 
-        if (intensity > 28) {
-          severity = 32
-        } else if (
-          intensity > 18
+        // Minor
+        if (
+          calibratedIntensity <=
+          9
+        ) {
+          severity = 14
+        }
+
+        // Moderate
+        else if (
+          calibratedIntensity <=
+          18
         ) {
           severity = 20
-        } else {
-          severity = 14
+        }
+
+        // Severe
+        else {
+          severity = 32
         }
 
         reportPothole(severity)
@@ -443,16 +578,18 @@ function Scanner() {
 
           let randomSeverity
 
+          // 20%
           if (random < 0.2) {
-            // 20%
             randomSeverity = 14
-          } else if (
-            random < 0.5
-          ) {
-            // 30%
+          }
+
+          // 30%
+          else if (random < 0.5) {
             randomSeverity = 20
-          } else {
-            // 50%
+          }
+
+          // 50%
+          else {
             randomSeverity = 32
           }
 
